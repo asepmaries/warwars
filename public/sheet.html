@@ -35,7 +35,9 @@
       <div id="sheetStats" class="sheet-stats"></div>
     </div>
 
-    <div id="spreadsheet"></div>
+    <div id="spreadsheet-wrap" class="sheet-scroll-wrap">
+      <div id="spreadsheet"></div>
+    </div>
     <div id="sheetError" class="status err" style="margin-top:12px;"></div>
   </div>
 
@@ -93,9 +95,8 @@
         allowDeleteRow: false,
         allowDeleteColumn: false,
         columnSorting: false,
-        tableOverflow: false,
+        tableOverflow: true,
         tableWidth: '100%',
-        tableHeight: '78vh',
         copyCompatibility: true,
         updateTable: function(el, cell, x, y) {
           const row = sheetRows[y];
@@ -111,6 +112,47 @@
       });
 
       applyRowStyles(sheetInstance, rows);
+      fixSheetScroll();
+    }
+
+    function fixSheetScroll() {
+      const wrap = document.getElementById('spreadsheet-wrap');
+      const root = document.getElementById('spreadsheet');
+      if (!wrap || !root) return;
+
+      const targets = [
+        root.querySelector('.jexcel_content'),
+        root.querySelector('.jexcel_container'),
+        root.querySelector('.jexcel'),
+        wrap,
+      ].filter(Boolean);
+
+      targets.forEach((el) => {
+        el.style.overflow = 'auto';
+        el.style.overflowY = 'auto';
+        el.style.maxHeight = '78vh';
+        el.style.webkitOverflowScrolling = 'touch';
+      });
+
+      const scrollEl = root.querySelector('.jexcel_content') || wrap;
+      if (scrollEl.dataset.wheelBound === '1') return;
+      scrollEl.dataset.wheelBound = '1';
+
+      scrollEl.addEventListener('wheel', (e) => {
+        const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+        if (maxScroll <= 0) return;
+
+        const goingUp = e.deltaY < 0;
+        const goingDown = e.deltaY > 0;
+        const atTop = scrollEl.scrollTop <= 0;
+        const atBottom = scrollEl.scrollTop >= maxScroll - 1;
+
+        if ((goingUp && atTop) || (goingDown && atBottom)) {
+          return;
+        }
+
+        e.stopPropagation();
+      }, { passive: true });
     }
 
     function buildTsv(rows) {
