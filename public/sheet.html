@@ -113,18 +113,13 @@
     }
 
     function buildTsv(rows) {
-      const header = ['User', 'Server', 'Jumlah', 'Hasil', 'Invoice'];
-      const lines = [header.join('\t')];
-      rows.forEach((r) => {
-        lines.push([
-          String(r.user),
-          String(r.server),
-          String(r.jumlah || '1'),
-          String(r.hasil || ''),
-          String(r.link_invoice || ''),
-        ].join('\t'));
-      });
-      return lines.join('\n');
+      return rows.map((r) => [
+        String(r.user),
+        String(r.server),
+        String(r.jumlah || '1'),
+        String(r.hasil || ''),
+        String(r.link_invoice || ''),
+      ].join('\t')).join('\n');
     }
 
     function fallbackCopyText(text) {
@@ -172,7 +167,7 @@
 
       const tsv = buildTsv(rows);
       const colCount = 5;
-      const rowCount = rows.length + 1;
+      const rowCount = rows.length;
       btn.disabled = true;
 
       const ok = await copyTextToClipboard(tsv);

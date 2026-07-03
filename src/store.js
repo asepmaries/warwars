@@ -242,6 +242,26 @@ function getSheetData() {
   };
 }
 
+function resetData() {
+  ensureDataDir();
+  const targets = [USERWDP_JSON, USERWDP_TXT, HASIL_TXT, LIMIT_TXT];
+  const deleted = [];
+
+  targets.forEach((file) => {
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+      deleted.push(path.basename(file));
+    }
+  });
+
+  return {
+    ok: true,
+    message: 'Semua data user dihapus',
+    deleted,
+    deleted_count: deleted.length,
+  };
+}
+
 function getMeta() {
   ensureDataDir();
   const data = readJson(USERWDP_JSON);
@@ -270,6 +290,7 @@ module.exports = {
   uploadUserWdp,
   uploadHasil,
   uploadLimit,
+  resetData,
   getSheetData,
   getMeta,
   USERWDP_JSON,

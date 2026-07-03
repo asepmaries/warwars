@@ -76,6 +76,14 @@ app.get('/api/meta', (req, res) => {
   sendOk(res, { ok: true, meta: store.getMeta() });
 });
 
+app.post('/api/reset', (req, res) => {
+  try {
+    sendOk(res, store.resetData());
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
 app.get('/health', (req, res) => {
   sendOk(res, { ok: true, service: 'wdp-sheet', port: PORT });
 });

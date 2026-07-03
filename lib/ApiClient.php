@@ -31,6 +31,11 @@ final class ApiClient
         return $this->request('GET', '/api/meta');
     }
 
+    public function reset(): array
+    {
+        return $this->request('POST', '/api/reset');
+    }
+
     public function upload(string $endpoint, string $filePath): array
     {
         if (!is_file($filePath)) {
@@ -58,12 +63,17 @@ final class ApiClient
 
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
-            curl_setopt_array($ch, [
+            $opts = [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_CUSTOMREQUEST => $method,
                 CURLOPT_CONNECTTIMEOUT => 5,
                 CURLOPT_TIMEOUT => 30,
-            ]);
+            ];
+            if ($method === 'POST') {
+                $opts[CURLOPT_POST] = true;
+                $opts[CURLOPT_POSTFIELDS] = '';
+            }
+            curl_setopt_array($ch, $opts);
             $body = curl_exec($ch);
             $errno = curl_errno($ch);
             $error = curl_error($ch);
@@ -85,13 +95,15 @@ final class ApiClient
             return $json;
         }
 
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => $method,
-                'timeout' => 30,
-                'ignore_errors' => true,
-            ],
-        ]);
+        $httpOpts = [
+            'method' => $method,
+            'timeout' => 30,
+            'ignore_errors' => true,
+        ];
+        if ($method === 'POST') {
+            $httpOpts['header'] = "Content-Length: 0\r\n";
+        }
+        $ctx = stream_context_create(['http' => $httpOpts]);
         $body = @file_get_contents($url, false, $ctx);
         $json = json_decode((string) $body, true);
         return is_array($json) ? $json : ['ok' => false, 'error' => 'API tidak dapat dihubungi'];

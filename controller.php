@@ -109,10 +109,16 @@ function printResult(array $result): void
         return;
     }
     echo 'OK' . PHP_EOL;
-    foreach (['row_count', 'matched', 'limit_count', 'hasil_count'] as $key) {
+    foreach (['row_count', 'matched', 'limit_count', 'hasil_count', 'deleted_count'] as $key) {
         if (isset($result[$key])) {
             echo strtoupper($key) . ': ' . $result[$key] . PHP_EOL;
         }
+    }
+    if (!empty($result['deleted'])) {
+        echo 'DELETED: ' . implode(', ', $result['deleted']) . PHP_EOL;
+    }
+    if (!empty($result['message'])) {
+        echo $result['message'] . PHP_EOL;
     }
     if (!empty($result['missing'])) {
         echo 'TIDAK ADA DI USERWDP: ' . implode(', ', array_slice($result['missing'], 0, 10)) . PHP_EOL;
@@ -169,8 +175,11 @@ function runCli(array $cli, ApiClient $api, array $files): void
                 openBrowser($url);
             }
             break;
+        case 'reset':
+            printResult($api->reset());
+            break;
         default:
-            fwrite(STDERR, "Usage: php controller.php [--api URL] [upload|upload-hasil|upload-limit|meta|sheet] [file] [--open]\n");
+            fwrite(STDERR, "Usage: php controller.php [--api URL] [upload|upload-hasil|upload-limit|meta|sheet|reset] [file] [--open]\n");
             exit(1);
     }
 }
@@ -203,6 +212,7 @@ while (true) {
     echo '3. Upload Limit (userlimit.txt)' . PHP_EOL;
     echo '4. Lihat Sheet (buka browser)' . PHP_EOL;
     echo '5. Status Data' . PHP_EOL;
+    echo '6. Reset Data (hapus semua user/hasil/limit)' . PHP_EOL;
     echo '0. Keluar' . PHP_EOL;
     hr();
 
@@ -221,6 +231,14 @@ while (true) {
             break;
         case '5':
             echo json_encode($api->meta(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+            break;
+        case '6':
+            echo 'PERINGATAN: Semua data user, hasil, dan limit di VPS akan dihapus.' . PHP_EOL;
+            if (strtoupper(ask('Ketik YES untuk reset')) !== 'YES') {
+                echo 'Reset dibatalkan.' . PHP_EOL;
+                break;
+            }
+            printResult($api->reset());
             break;
         case '0':
         case 'q':
