@@ -30,6 +30,7 @@
     <div class="sheet-toolbar">
       <button id="btnReload" type="button">Muat Ulang</button>
       <button id="btnCopyAll" type="button" class="btn-secondary">Copy Semua</button>
+      <button id="btnReset" type="button" class="btn-danger">Reset Data</button>
       <span id="copyToast" class="copy-toast"></span>
       <div id="sheetStats" class="sheet-stats"></div>
     </div>
@@ -210,8 +211,36 @@
       }
     }
 
+    async function resetData() {
+      const answer = prompt('Hapus semua data user, hasil, dan limit?\nKetik y untuk lanjut:');
+      if (!answer || answer.trim().toLowerCase() !== 'y') {
+        return;
+      }
+
+      const toastEl = document.getElementById('copyToast');
+      const btn = document.getElementById('btnReset');
+      toastEl.textContent = '';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        if (!data.ok) {
+          toastEl.textContent = data.error || 'Reset gagal';
+          return;
+        }
+        toastEl.textContent = `Reset OK — ${data.deleted_count || 0} file dihapus`;
+        await loadSheet();
+      } catch (err) {
+        toastEl.textContent = 'Reset gagal: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
     document.getElementById('btnReload').addEventListener('click', loadSheet);
     document.getElementById('btnCopyAll').addEventListener('click', () => copyAllTsv(sheetRows));
+    document.getElementById('btnReset').addEventListener('click', resetData);
     loadSheet();
   </script>
 </body>

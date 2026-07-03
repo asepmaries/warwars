@@ -124,6 +124,16 @@ button:disabled {
   color: var(--primary);
 }
 
+.btn-danger {
+  background: #fef2f2;
+  color: var(--danger);
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fee2e2;
+}
+
 .status {
   margin-top: 12px;
   font-size: 0.9rem;

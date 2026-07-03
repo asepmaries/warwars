@@ -3,8 +3,7 @@
 # Deploy WDP Sheet API ke VPS — sekali jalan.
 #
 # Contoh:
-#   WDP_REPO_URL=https://github.com/USER/wdp-sheet.git ./deploy-vps.sh
-#   ./deploy-vps.sh /path/to/existing/wdp-folder
+#   WDP_REPO_URL=https://github.com/asepmaries/warwars.git ./deploy-vps.sh
 #
 set -euo pipefail
 
@@ -44,20 +43,6 @@ install_pm2_if_missing() {
   sudo npm install -g pm2
 }
 
-install_php_if_missing() {
-  if command -v php >/dev/null 2>&1; then
-    log "PHP: $(php -v | head -1)"
-    return
-  fi
-  log "PHP belum ada, install php-cli (untuk controller.php)..."
-  if command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update -qq
-    sudo apt-get install -y php-cli php-curl
-  else
-    log "Lewati PHP — install manual jika butuh controller di VPS"
-  fi
-}
-
 prepare_source() {
   if [[ -n "$SOURCE_PATH" ]]; then
     INSTALL_DIR="$(cd "$SOURCE_PATH" && pwd)"
@@ -71,7 +56,7 @@ prepare_source() {
       log "Menggunakan folder script: $INSTALL_DIR"
       return
     fi
-    die "Set WDP_REPO_URL atau jalankan: ./deploy-vps.sh /path/to/wdp"
+    die "Set WDP_REPO_URL atau jalankan: ./deploy-vps.sh /path/to/war"
   fi
 
   need_cmd git
@@ -88,7 +73,6 @@ main() {
   need_cmd curl
   install_node_if_missing
   install_pm2_if_missing
-  install_php_if_missing
   prepare_source
 
   cd "$INSTALL_DIR"
@@ -97,8 +81,7 @@ main() {
   log "npm install --production"
   npm install --omit=dev
 
-  chmod +x deploy-vps.sh controller.php 2>/dev/null || true
-  chmod +x upload-data upload-hasil upload-limit wdp-meta 2>/dev/null || true
+  chmod +x deploy-vps.sh 2>/dev/null || true
 
   export WDP_PORT="$PORT"
   export WDP_HOST="$HOST"
@@ -112,13 +95,9 @@ main() {
   echo " WDP Sheet siap"
   echo "========================================"
   echo " Folder : $INSTALL_DIR"
-  echo " API    : http://$HOST:$PORT"
   echo " Sheet  : http://$HOST:$PORT/sheet"
+  echo " API    : http://$HOST:$PORT/api/meta"
   echo " Health : http://$HOST:$PORT/health"
-  echo ""
-  echo "Upload via PHP controller:"
-  echo "  cd $INSTALL_DIR"
-  echo "  php controller.php"
   echo ""
   echo "PM2:"
   echo "  pm2 status wdp-sheet"

@@ -11,7 +11,7 @@
     <div class="header">
       <div>
         <h1>WDP Sheet</h1>
-        <p>API Node Express + tampilan spreadsheet untuk copy-paste ke Google Sheets.</p>
+        <p>API Node Express + spreadsheet untuk copy-paste ke Google Sheets.</p>
       </div>
       <div class="nav">
         <a href="/sheet">Buka Sheet →</a>
@@ -20,14 +20,11 @@
 
     <div class="grid">
       <div class="card">
-        <h2>Upload via Controller</h2>
-        <p>Gunakan menu PHP di mesin Anda (bukan upload browser):</p>
-        <pre>php controller.php</pre>
-        <p>Atau perintah cepat:</p>
-        <pre>./upload-data userwdp.txt
-./upload-hasil hasil.txt
-./upload-limit userlimit.txt
-./open-sheet</pre>
+        <h2>Upload Data</h2>
+        <p>Kirim file teks ke API (dari skrip lokal / curl):</p>
+        <pre>curl -X POST --data-binary @userwdp.txt http://IP:8080/api/upload
+curl -X POST --data-binary @hasil.txt http://IP:8080/api/upload-hasil
+curl -X POST --data-binary @userlimit.txt http://IP:8080/api/upload-limit</pre>
       </div>
 
       <div class="card">
@@ -39,15 +36,16 @@
       </div>
 
       <div class="card">
-        <h2>Tampilkan Data</h2>
-        <p>Urutan: sukses → limit → zonk. Kolom User merah = limit.</p>
+        <h2>Sheet</h2>
+        <p>Urutan: Hasil 1 → limit → zonk. Copy semua tanpa header.</p>
         <a class="btn btn-primary" href="/sheet">Buka /sheet</a>
       </div>
 
       <div class="card">
         <h2>API</h2>
         <p><code>GET /api/meta</code> · <code>GET /api/sheet</code></p>
-        <p><code>POST /api/upload</code> · <code>POST /api/upload-hasil</code> · <code>POST /api/upload-limit</code></p>
+        <p><code>POST /api/upload</code> · <code>POST /api/upload-hasil</code></p>
+        <p><code>POST /api/upload-limit</code> · <code>POST /api/reset</code></p>
         <p><code>GET /health</code></p>
       </div>
     </div>

@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-DIR="$(cd "$(dirname "$0")" && pwd)"
-FILE="${1:-hasil.txt}"
-exec php "$DIR/controller.php" upload-hasil "$FILE"
