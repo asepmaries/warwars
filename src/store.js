@@ -48,10 +48,40 @@ function writeJson(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
+function mergeLinesByUser(existingContent, newContent, minParts = 2) {
+  const map = new Map();
+
+  const ingest = (content) => {
+    parseLines(content).forEach((line) => {
+      if (/^user\|/i.test(line)) return;
+      const parts = line.split('|').map((p) => p.trim());
+      if (parts.length < minParts) return;
+      const user = normalizeUserId(parts[0]);
+      if (!user) return;
+      map.set(user, parts.join('|'));
+    });
+  };
+
+  ingest(existingContent);
+  ingest(newContent);
+
+  if (!map.size) return '';
+  return `${Array.from(map.values()).join('\n')}\n`;
+}
+
 function uploadUserWdp(content) {
   ensureDataDir();
-  const rows = [];
+  const data = readJson(USERWDP_JSON);
+  const rows = data.rows || [];
+  const index = {};
+  rows.forEach((row, i) => {
+    index[row.user] = i;
+  });
+
   const errors = [];
+  let added = 0;
+  let updated = 0;
+  let incoming = 0;
 
   parseLines(content).forEach((line, i) => {
     if (/^user\|/i.test(line)) return;
@@ -65,29 +95,42 @@ function uploadUserWdp(content) {
       errors.push(`Baris ${i + 1}: user id kosong`);
       return;
     }
+
+    incoming++;
+    const server = parts[1];
+    const jumlah = parseInt(parts[2], 10) || 0;
+
+    if (index[user] !== undefined) {
+      rows[index[user]].server = server;
+      rows[index[user]].jumlah = jumlah;
+      updated++;
+      return;
+    }
+
     rows.push({
       user,
-      server: parts[1],
-      jumlah: parseInt(parts[2], 10) || 0,
+      server,
+      jumlah,
       link_invoice: '',
     });
+    index[user] = rows.length - 1;
+    added++;
   });
 
-  if (!rows.length && !errors.length) {
+  if (!incoming && !errors.length) {
     throw new Error('File kosong atau tidak ada baris valid.');
   }
 
-  const payload = {
-    updated_at: new Date().toISOString(),
-    source_file: 'userwdp.txt',
-    row_count: rows.length,
-    rows,
-  };
+  const existingTxt = fs.existsSync(USERWDP_TXT) ? fs.readFileSync(USERWDP_TXT, 'utf8') : '';
+  fs.writeFileSync(USERWDP_TXT, mergeLinesByUser(existingTxt, content, 3));
 
-  fs.writeFileSync(USERWDP_TXT, content, 'utf8');
-  writeJson(USERWDP_JSON, payload);
+  data.updated_at = new Date().toISOString();
+  data.source_file = 'userwdp.txt';
+  data.row_count = rows.length;
+  data.rows = rows;
+  writeJson(USERWDP_JSON, data);
 
-  return { ok: true, row_count: rows.length, errors };
+  return { ok: true, row_count: rows.length, added, updated, errors };
 }
 
 function uploadHasil(content) {
@@ -128,7 +171,9 @@ function uploadHasil(content) {
     matched++;
   });
 
-  fs.writeFileSync(HASIL_TXT, content, 'utf8');
+  const existingHasil = fs.existsSync(HASIL_TXT) ? fs.readFileSync(HASIL_TXT, 'utf8') : '';
+  fs.writeFileSync(HASIL_TXT, mergeLinesByUser(existingHasil, content, 3));
+
   data.rows = rows;
   data.hasil_updated_at = new Date().toISOString();
   data.row_count = rows.length;
@@ -139,6 +184,7 @@ function uploadHasil(content) {
     matched,
     missing: [...new Set(missing.filter(Boolean))],
     hasil_count: hasilRows.length,
+    hasil_total: parseLines(fs.readFileSync(HASIL_TXT, 'utf8')).length,
     errors,
   };
 }
@@ -146,7 +192,7 @@ function uploadHasil(content) {
 function uploadLimit(content) {
   ensureDataDir();
   const errors = [];
-  let count = 0;
+  let incoming = 0;
 
   parseLines(content).forEach((line, i) => {
     if (/^user\|/i.test(line)) return;
@@ -155,14 +201,21 @@ function uploadLimit(content) {
       errors.push(`Baris ${i + 1}: format harus user|id`);
       return;
     }
-    count++;
+    incoming++;
   });
 
-  fs.writeFileSync(LIMIT_TXT, content, 'utf8');
+  if (!incoming && !errors.length) {
+    throw new Error('File kosong atau tidak ada baris valid.');
+  }
+
+  const existingLimit = fs.existsSync(LIMIT_TXT) ? fs.readFileSync(LIMIT_TXT, 'utf8') : '';
+  const merged = mergeLinesByUser(existingLimit, content, 2);
+  fs.writeFileSync(LIMIT_TXT, merged);
 
   return {
     ok: true,
-    limit_count: count,
+    limit_count: incoming,
+    limit_total: parseLines(merged).length,
     errors,
     updated_at: new Date().toISOString(),
   };
