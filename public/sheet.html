@@ -9,11 +9,11 @@
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container sheet-wide">
     <div class="header">
       <div>
         <h1>WDP Sheet</h1>
-        <p>Block sel → Ctrl+C → paste di Google Sheets / Excel.</p>
+        <p>Klik <b>Copy Semua</b> lalu paste (Ctrl+V) di Google Sheets — atau block sel manual lalu Ctrl+C.</p>
       </div>
       <div class="nav">
         <a href="/">← Info / API</a>
@@ -29,7 +29,8 @@
 
     <div class="sheet-toolbar">
       <button id="btnReload" type="button">Muat Ulang</button>
-      <button id="btnCopyAll" type="button" class="btn-secondary">Copy Semua (TSV)</button>
+      <button id="btnCopyAll" type="button" class="btn-secondary">Copy Semua</button>
+      <span id="copyToast" class="copy-toast"></span>
       <div id="sheetStats" class="sheet-stats"></div>
     </div>
 
@@ -80,20 +81,20 @@
       sheetInstance = jspreadsheet(container, {
         data,
         columns: [
-          { type: 'text', title: 'User', width: 140 },
-          { type: 'text', title: 'Server', width: 90 },
-          { type: 'numeric', title: 'Jumlah', width: 70, readOnly: true },
-          { type: 'text', title: 'Hasil', width: 80, readOnly: true },
-          { type: 'text', title: 'Invoice', width: 280 },
+          { type: 'text', title: 'User', width: 160 },
+          { type: 'text', title: 'Server', width: 100 },
+          { type: 'numeric', title: 'Jumlah', width: 80, readOnly: true },
+          { type: 'text', title: 'Hasil', width: 90, readOnly: true },
+          { type: 'text', title: 'Invoice', width: 520 },
         ],
         allowInsertRow: false,
         allowInsertColumn: false,
         allowDeleteRow: false,
         allowDeleteColumn: false,
         columnSorting: false,
-        tableOverflow: true,
+        tableOverflow: false,
         tableWidth: '100%',
-        tableHeight: '70vh',
+        tableHeight: '78vh',
         copyCompatibility: true,
         updateTable: function(el, cell, x, y) {
           const row = sheetRows[y];
@@ -111,7 +112,7 @@
       applyRowStyles(sheetInstance, rows);
     }
 
-    function copyAllTsv(rows) {
+    function buildTsv(rows) {
       const header = ['User', 'Server', 'Jumlah', 'Hasil', 'Invoice'];
       const lines = [header.join('\t')];
       rows.forEach((r) => {
@@ -123,17 +124,70 @@
           String(r.link_invoice || ''),
         ].join('\t'));
       });
-      const tsv = lines.join('\n');
-      navigator.clipboard.writeText(tsv).then(() => {
-        document.getElementById('sheetStats').textContent += ' | Copied!';
-      }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = tsv;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      });
+      return lines.join('\n');
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    async function copyTextToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (e) {
+          return fallbackCopyText(text);
+        }
+      }
+      return fallbackCopyText(text);
+    }
+
+    async function copyAllTsv(rows) {
+      const toastEl = document.getElementById('copyToast');
+      const btn = document.getElementById('btnCopyAll');
+      toastEl.textContent = '';
+
+      if (!rows || rows.length === 0) {
+        toastEl.textContent = 'Belum ada data.';
+        return;
+      }
+
+      const tsv = buildTsv(rows);
+      const colCount = 5;
+      const rowCount = rows.length + 1;
+      btn.disabled = true;
+
+      const ok = await copyTextToClipboard(tsv);
+      btn.disabled = false;
+
+      if (ok) {
+        toastEl.textContent = `${rowCount} baris × ${colCount} kolom disalin — buka Google Sheets lalu Ctrl+V`;
+        btn.textContent = 'Tersalin!';
+        setTimeout(() => {
+          btn.textContent = 'Copy Semua';
+          toastEl.textContent = '';
+        }, 4000);
+      } else {
+        toastEl.textContent = 'Gagal copy. Izinkan akses clipboard di browser.';
+      }
     }
 
     async function loadSheet() {

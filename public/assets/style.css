@@ -27,6 +27,11 @@ body {
   padding: 24px;
 }
 
+.container.sheet-wide {
+  max-width: min(100%, 1720px);
+  padding: 20px 28px 32px;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -109,6 +114,11 @@ button:hover,
   background: var(--primary-hover);
 }
 
+button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .btn-secondary {
   background: #eef2ff;
   color: var(--primary);
@@ -161,6 +171,30 @@ button:hover,
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: auto;
+  width: 100%;
+}
+
+.container.sheet-wide #spreadsheet .jexcel_content,
+.container.sheet-wide #spreadsheet .jexcel_container {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.container.sheet-wide #spreadsheet table.jexcel {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+.container.sheet-wide #spreadsheet table.jexcel td,
+.container.sheet-wide #spreadsheet table.jexcel th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-toast {
+  color: var(--success);
+  font-weight: 600;
 }
 
 .legend {
