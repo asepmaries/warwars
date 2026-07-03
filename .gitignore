@@ -1,0 +1,9 @@
+node_modules/
+data/userwdp.json
+data/userwdp.txt
+data/hasil.txt
+data/userlimit.txt
+logs/*.log
+config.local.php
+.env
+*.log

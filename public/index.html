@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WDP Sheet</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>WDP Sheet</h1>
+        <p>API Node Express + tampilan spreadsheet untuk copy-paste ke Google Sheets.</p>
+      </div>
+      <div class="nav">
+        <a href="/sheet">Buka Sheet →</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Upload via Controller</h2>
+        <p>Gunakan menu PHP di mesin Anda (bukan upload browser):</p>
+        <pre>php controller.php</pre>
+        <p>Atau perintah cepat:</p>
+        <pre>./upload-data userwdp.txt
+./upload-hasil hasil.txt
+./upload-limit userlimit.txt
+./open-sheet</pre>
+      </div>
+
+      <div class="card">
+        <h2>Format File</h2>
+        <p><code>userwdp.txt</code> → user|id|jumlah</p>
+        <p><code>hasil.txt</code> → user|id|link_invoice</p>
+        <p><code>userlimit.txt</code> → user|id|lainnya</p>
+        <p>Contoh ada di folder <code>files/</code></p>
+      </div>
+
+      <div class="card">
+        <h2>Tampilkan Data</h2>
+        <p>Urutan: sukses → limit → zonk. Kolom User merah = limit.</p>
+        <a class="btn btn-primary" href="/sheet">Buka /sheet</a>
+      </div>
+
+      <div class="card">
+        <h2>API</h2>
+        <p><code>GET /api/meta</code> · <code>GET /api/sheet</code></p>
+        <p><code>POST /api/upload</code> · <code>POST /api/upload-hasil</code> · <code>POST /api/upload-limit</code></p>
+        <p><code>GET /health</code></p>
+      </div>
+    </div>
+
+    <div class="meta-box">
+      <strong>Status server</strong>
+      <pre id="metaBox">Memuat...</pre>
+    </div>
+  </div>
+  <script>
+    fetch('/api/meta').then(r => r.json()).then(d => {
+      document.getElementById('metaBox').textContent = JSON.stringify(d.meta || d, null, 2);
+    }).catch(e => {
+      document.getElementById('metaBox').textContent = 'API belum siap: ' + e.message;
+    });
+  </script>
+</body>
+</html>

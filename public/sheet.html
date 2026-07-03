@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WDP Sheet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jspreadsheet.min.css">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>WDP Sheet</h1>
+        <p>Block sel → Ctrl+C → paste di Google Sheets / Excel.</p>
+      </div>
+      <div class="nav">
+        <a href="/">← Info / API</a>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch green"></i> Sukses (dapat voucher)</span>
+      <span><i class="swatch red"></i> Limit (kolom User merah)</span>
+      <span>Zonk = belum dapat</span>
+    </div>
+
+    <div class="sheet-toolbar">
+      <button id="btnReload" type="button">Muat Ulang</button>
+      <button id="btnCopyAll" type="button" class="btn-secondary">Copy Semua (TSV)</button>
+      <div id="sheetStats" class="sheet-stats"></div>
+    </div>
+
+    <div id="spreadsheet"></div>
+    <div id="sheetError" class="status err" style="margin-top:12px;"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/index.min.js"></script>
+  <script>
+    let sheetInstance = null;
+    let sheetRows = [];
+
+    function rowsToGrid(rows) {
+      return rows.map((r) => [
+        String(r.user),
+        String(r.server),
+        String(r.jumlah),
+        String(r.link_invoice || ''),
+        String(r.status_label || ''),
+      ]);
+    }
+
+    function applyRowStyles(instance, rows) {
+      for (let y = 0; y < rows.length; y++) {
+        const row = rows[y];
+        const cell = instance.getCellFromCoords(0, y);
+        if (!cell) continue;
+        if (row.status === 'limit') {
+          cell.style.backgroundColor = '#ff0000';
+          cell.style.color = '#ffffff';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'sukses') {
+          cell.style.backgroundColor = '#ecfdf5';
+        } else {
+          cell.style.backgroundColor = '';
+          cell.style.color = '';
+          cell.style.fontWeight = '';
+        }
+      }
+    }
+
+    function buildSheet(rows) {
+      const data = rowsToGrid(rows);
+      const container = document.getElementById('spreadsheet');
+      container.innerHTML = '';
+
+      sheetInstance = jspreadsheet(container, {
+        data,
+        columns: [
+          { type: 'text', title: 'User', width: 140 },
+          { type: 'text', title: 'Server', width: 90 },
+          { type: 'numeric', title: 'Jumlah', width: 70 },
+          { type: 'text', title: 'Invoice', width: 280 },
+          { type: 'text', title: 'Status', width: 80, readOnly: true },
+        ],
+        allowInsertRow: false,
+        allowInsertColumn: false,
+        allowDeleteRow: false,
+        allowDeleteColumn: false,
+        columnSorting: false,
+        tableOverflow: true,
+        tableWidth: '100%',
+        tableHeight: '70vh',
+        copyCompatibility: true,
+        updateTable: function(el, cell, x, y) {
+          const row = sheetRows[y];
+          if (!row || x !== 0) return;
+          if (row.status === 'limit') {
+            cell.style.backgroundColor = '#ff0000';
+            cell.style.color = '#ffffff';
+            cell.style.fontWeight = '600';
+          } else if (row.status === 'sukses') {
+            cell.style.backgroundColor = '#ecfdf5';
+          }
+        },
+      });
+
+      applyRowStyles(sheetInstance, rows);
+    }
+
+    function copyAllTsv(rows) {
+      const header = ['User', 'Server', 'Jumlah', 'Invoice', 'Status'];
+      const lines = [header.join('\t')];
+      rows.forEach((r) => {
+        lines.push([
+          String(r.user),
+          String(r.server),
+          String(r.jumlah),
+          String(r.link_invoice || ''),
+          String(r.status_label || ''),
+        ].join('\t'));
+      });
+      const tsv = lines.join('\n');
+      navigator.clipboard.writeText(tsv).then(() => {
+        document.getElementById('sheetStats').textContent += ' | Copied!';
+      }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = tsv;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+    }
+
+    async function loadSheet() {
+      const errEl = document.getElementById('sheetError');
+      const statsEl = document.getElementById('sheetStats');
+      errEl.textContent = '';
+      statsEl.textContent = 'Memuat...';
+
+      try {
+        const res = await fetch('/api/sheet');
+        const data = await res.json();
+        if (!data.ok) {
+          errEl.textContent = data.error || 'Gagal memuat data';
+          statsEl.textContent = '';
+          document.getElementById('spreadsheet').innerHTML = '';
+          return;
+        }
+        sheetRows = data.rows || [];
+        buildSheet(sheetRows);
+        const c = data.counts || {};
+        statsEl.textContent = `Total: ${data.row_count} | Sukses: ${c.sukses || 0} | Limit: ${c.limit || 0} | Zonk: ${c.zonk || 0}`;
+      } catch (err) {
+        errEl.textContent = 'Error: ' + err.message;
+        statsEl.textContent = '';
+      }
+    }
+
+    document.getElementById('btnReload').addEventListener('click', loadSheet);
+    document.getElementById('btnCopyAll').addEventListener('click', () => copyAllTsv(sheetRows));
+    loadSheet();
+  </script>
+</body>
+</html>

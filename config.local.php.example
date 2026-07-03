@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * Salin ke config.local.php lalu sesuaikan.
+ */
+return [
+    'api_url' => 'http://127.0.0.1:8080',
+    'default_files' => [
+        'userwdp' => 'userwdp.txt',
+        'hasil' => 'hasil.txt',
+        'limit' => 'userlimit.txt',
+    ],
+];
