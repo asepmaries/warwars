@@ -21,6 +21,7 @@
     </div>
 
     <div class="legend">
+      <span>Jumlah = <b>1</b> (order 1x, semua user)</span>
       <span><i class="swatch green"></i> Hasil <b>1</b> = dapat invoice (paling atas)</span>
       <span><i class="swatch red"></i> Hasil <b>limit</b> = user limit (urutan ke-2)</span>
       <span>Zonk = kolom Hasil kosong (paling bawah)</span>
@@ -46,6 +47,7 @@
       return rows.map((r) => [
         String(r.user),
         String(r.server),
+        String(r.jumlah || '1'),
         String(r.hasil || ''),
         String(r.link_invoice || ''),
       ]);
@@ -80,6 +82,7 @@
         columns: [
           { type: 'text', title: 'User', width: 140 },
           { type: 'text', title: 'Server', width: 90 },
+          { type: 'numeric', title: 'Jumlah', width: 70, readOnly: true },
           { type: 'text', title: 'Hasil', width: 80, readOnly: true },
           { type: 'text', title: 'Invoice', width: 280 },
         ],
@@ -109,12 +112,13 @@
     }
 
     function copyAllTsv(rows) {
-      const header = ['User', 'Server', 'Hasil', 'Invoice'];
+      const header = ['User', 'Server', 'Jumlah', 'Hasil', 'Invoice'];
       const lines = [header.join('\t')];
       rows.forEach((r) => {
         lines.push([
           String(r.user),
           String(r.server),
+          String(r.jumlah || '1'),
           String(r.hasil || ''),
           String(r.link_invoice || ''),
         ].join('\t'));

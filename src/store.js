@@ -194,8 +194,8 @@ function loadLimitMap() {
 
 function classifyRow(row, hasilMap, limitMap) {
   const user = row.user;
-  const isSuccess = !!hasilMap[user] || Number(row.jumlah) === 1;
-  if (isSuccess) return { status: 'sukses', sort: 0, hasil: '1' };
+  const gotInvoice = !!hasilMap[user] || String(row.link_invoice || '').trim() !== '';
+  if (gotInvoice) return { status: 'sukses', sort: 0, hasil: '1' };
   if (limitMap[user]) return { status: 'limit', sort: 1, hasil: 'limit' };
   return { status: 'zonk', sort: 2, hasil: '' };
 }
@@ -222,6 +222,7 @@ function getSheetData() {
     return {
       user: String(rest.user),
       server: String(rest.server || ''),
+      jumlah: '1',
       hasil: String(rest.hasil || ''),
       link_invoice: String(rest.link_invoice || ''),
       status: rest.status,
