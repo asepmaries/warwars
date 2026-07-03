@@ -21,9 +21,9 @@
     </div>
 
     <div class="legend">
-      <span><i class="swatch green"></i> Sukses (dapat voucher)</span>
-      <span><i class="swatch red"></i> Limit (kolom User merah)</span>
-      <span>Zonk = belum dapat</span>
+      <span><i class="swatch green"></i> Hasil <b>1</b> = dapat invoice (paling atas)</span>
+      <span><i class="swatch red"></i> Hasil <b>limit</b> = user limit (urutan ke-2)</span>
+      <span>Zonk = kolom Hasil kosong (paling bawah)</span>
     </div>
 
     <div class="sheet-toolbar">
@@ -46,9 +46,8 @@
       return rows.map((r) => [
         String(r.user),
         String(r.server),
-        String(r.jumlah),
+        String(r.hasil || ''),
         String(r.link_invoice || ''),
-        String(r.status_label || ''),
       ]);
     }
 
@@ -81,9 +80,8 @@
         columns: [
           { type: 'text', title: 'User', width: 140 },
           { type: 'text', title: 'Server', width: 90 },
-          { type: 'numeric', title: 'Jumlah', width: 70 },
+          { type: 'text', title: 'Hasil', width: 80, readOnly: true },
           { type: 'text', title: 'Invoice', width: 280 },
-          { type: 'text', title: 'Status', width: 80, readOnly: true },
         ],
         allowInsertRow: false,
         allowInsertColumn: false,
@@ -111,15 +109,14 @@
     }
 
     function copyAllTsv(rows) {
-      const header = ['User', 'Server', 'Jumlah', 'Invoice', 'Status'];
+      const header = ['User', 'Server', 'Hasil', 'Invoice'];
       const lines = [header.join('\t')];
       rows.forEach((r) => {
         lines.push([
           String(r.user),
           String(r.server),
-          String(r.jumlah),
+          String(r.hasil || ''),
           String(r.link_invoice || ''),
-          String(r.status_label || ''),
         ].join('\t'));
       });
       const tsv = lines.join('\n');

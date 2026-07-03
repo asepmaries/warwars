@@ -195,9 +195,9 @@ function loadLimitMap() {
 function classifyRow(row, hasilMap, limitMap) {
   const user = row.user;
   const isSuccess = !!hasilMap[user] || Number(row.jumlah) === 1;
-  if (isSuccess) return { status: 'sukses', sort: 0, status_label: '' };
-  if (limitMap[user]) return { status: 'limit', sort: 1, status_label: 'limit' };
-  return { status: 'zonk', sort: 2, status_label: '' };
+  if (isSuccess) return { status: 'sukses', sort: 0, hasil: '1' };
+  if (limitMap[user]) return { status: 'limit', sort: 1, hasil: 'limit' };
+  return { status: 'zonk', sort: 2, hasil: '' };
 }
 
 function getSheetData() {
@@ -220,10 +220,12 @@ function getSheetData() {
   const finalRows = enriched.map((row) => {
     const { _order, ...rest } = row;
     return {
-      ...rest,
       user: String(rest.user),
-      jumlah: Number(rest.jumlah) || 0,
+      server: String(rest.server || ''),
+      hasil: String(rest.hasil || ''),
       link_invoice: String(rest.link_invoice || ''),
+      status: rest.status,
+      sort: rest.sort,
     };
   });
 
