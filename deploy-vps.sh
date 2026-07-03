@@ -11,7 +11,7 @@ set -euo pipefail
 PORT="${WDP_PORT:-8080}"
 HOST="${WDP_HOST:-0.0.0.0}"
 REPO_URL="${WDP_REPO_URL:-}"
-INSTALL_DIR="${WDP_INSTALL_DIR:-$HOME/wdp-sheet}"
+INSTALL_DIR="${WDP_INSTALL_DIR:-/war}"
 SOURCE_PATH="${1:-}"
 
 log() { echo "[wdp-deploy] $*"; }
@@ -44,6 +44,20 @@ install_pm2_if_missing() {
   sudo npm install -g pm2
 }
 
+install_php_if_missing() {
+  if command -v php >/dev/null 2>&1; then
+    log "PHP: $(php -v | head -1)"
+    return
+  fi
+  log "PHP belum ada, install php-cli (untuk controller.php)..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo apt-get install -y php-cli php-curl
+  else
+    log "Lewati PHP — install manual jika butuh controller di VPS"
+  fi
+}
+
 prepare_source() {
   if [[ -n "$SOURCE_PATH" ]]; then
     INSTALL_DIR="$(cd "$SOURCE_PATH" && pwd)"
@@ -74,6 +88,7 @@ main() {
   need_cmd curl
   install_node_if_missing
   install_pm2_if_missing
+  install_php_if_missing
   prepare_source
 
   cd "$INSTALL_DIR"
