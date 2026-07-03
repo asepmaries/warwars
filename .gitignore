@@ -1,6 +1,8 @@
 node_modules/
 data/userwdp.json
 data/userwdp.txt
+data/userwdp2.json
+data/userwdp2.txt
 data/hasil.txt
 data/userlimit.txt
 logs/*.log

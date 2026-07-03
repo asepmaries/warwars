@@ -14,7 +14,8 @@
         <p>API Node Express + spreadsheet untuk copy-paste ke Google Sheets.</p>
       </div>
       <div class="nav">
-        <a href="/sheet">Buka Sheet →</a>
+        <a href="/sheet">Sheet Utama →</a>
+        <a href="/sheet2">Sheet Order 2 →</a>
       </div>
     </div>
 
@@ -32,7 +33,7 @@ curl -X POST --data-binary @userlimit.txt http://IP:8080/api/upload-limit</pre>
         <p><code>userwdp.txt</code> → user|id|jumlah</p>
         <p><code>hasil.txt</code> → user|id|link_invoice</p>
         <p><code>userlimit.txt</code> → user|id|lainnya</p>
-        <p>Upload user/hasil/limit = <b>merge</b> (tambah/update). Reset data untuk mulai dari nol.</p>
+        <p>User utama &amp; order kedua <b>terpisah</b>. Hasil &amp; limit <b>digabung</b>. Upload = merge.</p>
         <p>Contoh ada di folder <code>files/</code></p>
       </div>
 
@@ -50,9 +51,10 @@ curl -X POST --data-binary @userlimit.txt http://IP:8080/api/upload-limit</pre>
 
       <div class="card">
         <h2>API</h2>
-        <p><code>GET /api/meta</code> · <code>GET /api/sheet</code></p>
-        <p><code>POST /api/upload</code> · <code>POST /api/upload-hasil</code></p>
-        <p><code>POST /api/upload-limit</code> · <code>POST /api/reset</code></p>
+        <p><code>GET /api/sheet</code> · <code>GET /api/sheet2</code></p>
+        <p><code>POST /api/upload</code> · <code>POST /api/upload-sheet2</code></p>
+        <p><code>POST /api/upload-hasil</code> · <code>POST /api/upload-limit</code></p>
+        <p><code>POST /api/reset</code></p>
         <p><code>GET /health</code></p>
       </div>
     </div>

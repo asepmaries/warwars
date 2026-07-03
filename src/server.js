@@ -39,7 +39,17 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   try {
     const content = readBodyContent(req);
     if (!content.trim()) return sendErr(res, 'File kosong');
-    sendOk(res, store.uploadUserWdp(content));
+    sendOk(res, store.uploadUserWdp(content, 'main'));
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
+app.post('/api/upload-sheet2', upload.single('file'), (req, res) => {
+  try {
+    const content = readBodyContent(req);
+    if (!content.trim()) return sendErr(res, 'File kosong');
+    sendOk(res, store.uploadUserWdp(content, 'sheet2'));
   } catch (e) {
     sendErr(res, e.message);
   }
@@ -67,9 +77,16 @@ app.post('/api/upload-limit', upload.single('file'), (req, res) => {
 
 app.get('/api/sheet', (req, res) => {
   if (!fs.existsSync(store.USERWDP_JSON)) {
-    return sendErr(res, 'Belum ada data. Upload userwdp.txt dulu.', 404);
+    return sendErr(res, 'Belum ada data. Upload user utama dulu.', 404);
   }
-  sendOk(res, { ok: true, ...store.getSheetData() });
+  sendOk(res, { ok: true, ...store.getSheetData('main') });
+});
+
+app.get('/api/sheet2', (req, res) => {
+  if (!fs.existsSync(store.USERWDP2_JSON)) {
+    return sendErr(res, 'Belum ada data. Upload user order kedua dulu.', 404);
+  }
+  sendOk(res, { ok: true, ...store.getSheetData('sheet2') });
 });
 
 app.get('/api/meta', (req, res) => {
@@ -96,6 +113,10 @@ app.get('/sheet', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'sheet.html'));
 });
 
+app.get('/sheet2', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'sheet2.html'));
+});
+
 app.use(express.static(PUBLIC_DIR));
 
 app.use((req, res) => {
@@ -104,5 +125,6 @@ app.use((req, res) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`WDP Sheet API: http://${HOST}:${PORT}`);
-  console.log(`Sheet view:    http://${HOST}:${PORT}/sheet`);
+  console.log(`Sheet utama:   http://${HOST}:${PORT}/sheet`);
+  console.log(`Sheet order 2: http://${HOST}:${PORT}/sheet2`);
 });

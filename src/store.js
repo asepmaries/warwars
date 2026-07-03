@@ -5,8 +5,25 @@ const ROOT = path.join(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const USERWDP_JSON = path.join(DATA_DIR, 'userwdp.json');
 const USERWDP_TXT = path.join(DATA_DIR, 'userwdp.txt');
+const USERWDP2_JSON = path.join(DATA_DIR, 'userwdp2.json');
+const USERWDP2_TXT = path.join(DATA_DIR, 'userwdp2.txt');
 const HASIL_TXT = path.join(DATA_DIR, 'hasil.txt');
 const LIMIT_TXT = path.join(DATA_DIR, 'userlimit.txt');
+
+const SHEET_STORE = {
+  main: {
+    key: 'main',
+    json: USERWDP_JSON,
+    txt: USERWDP_TXT,
+    source_file: 'userwdp.txt',
+  },
+  sheet2: {
+    key: 'sheet2',
+    json: USERWDP2_JSON,
+    txt: USERWDP2_TXT,
+    source_file: 'userwdp2.txt',
+  },
+};
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -48,6 +65,10 @@ function writeJson(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
+function getSheetStore(sheetKey = 'main') {
+  return SHEET_STORE[sheetKey] || SHEET_STORE.main;
+}
+
 function mergeLinesByUser(existingContent, newContent, minParts = 2) {
   const map = new Map();
 
@@ -69,9 +90,10 @@ function mergeLinesByUser(existingContent, newContent, minParts = 2) {
   return `${Array.from(map.values()).join('\n')}\n`;
 }
 
-function uploadUserWdp(content) {
+function uploadUserWdp(content, sheetKey = 'main') {
   ensureDataDir();
-  const data = readJson(USERWDP_JSON);
+  const store = getSheetStore(sheetKey);
+  const data = readJson(store.json);
   const rows = data.rows || [];
   const index = {};
   rows.forEach((row, i) => {
@@ -121,32 +143,46 @@ function uploadUserWdp(content) {
     throw new Error('File kosong atau tidak ada baris valid.');
   }
 
-  const existingTxt = fs.existsSync(USERWDP_TXT) ? fs.readFileSync(USERWDP_TXT, 'utf8') : '';
-  fs.writeFileSync(USERWDP_TXT, mergeLinesByUser(existingTxt, content, 3));
+  const existingTxt = fs.existsSync(store.txt) ? fs.readFileSync(store.txt, 'utf8') : '';
+  fs.writeFileSync(store.txt, mergeLinesByUser(existingTxt, content, 3));
 
   data.updated_at = new Date().toISOString();
-  data.source_file = 'userwdp.txt';
+  data.source_file = store.source_file;
+  data.sheet = sheetKey;
   data.row_count = rows.length;
   data.rows = rows;
-  writeJson(USERWDP_JSON, data);
+  writeJson(store.json, data);
 
-  return { ok: true, row_count: rows.length, added, updated, errors };
+  return { ok: true, sheet: sheetKey, row_count: rows.length, added, updated, errors };
+}
+
+function loadUserStores() {
+  const mainData = readJson(USERWDP_JSON);
+  const sheet2Data = readJson(USERWDP2_JSON);
+  const mainRows = mainData.rows || [];
+  const sheet2Rows = sheet2Data.rows || [];
+  const indexMain = {};
+  const indexSheet2 = {};
+  mainRows.forEach((row, i) => {
+    indexMain[row.user] = i;
+  });
+  sheet2Rows.forEach((row, i) => {
+    indexSheet2[row.user] = i;
+  });
+  return { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2 };
 }
 
 function uploadHasil(content) {
   ensureDataDir();
-  if (!fs.existsSync(USERWDP_JSON)) {
-    throw new Error('Upload userwdp dulu sebelum upload hasil');
+  if (!fs.existsSync(USERWDP_JSON) && !fs.existsSync(USERWDP2_JSON)) {
+    throw new Error('Upload user dulu sebelum upload hasil');
   }
 
-  const data = readJson(USERWDP_JSON);
-  const rows = data.rows || [];
-  const index = {};
-  rows.forEach((row, i) => {
-    index[row.user] = i;
-  });
+  const { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2 } = loadUserStores();
 
   let matched = 0;
+  let matched_main = 0;
+  let matched_sheet2 = 0;
   const missing = [];
   const errors = [];
   const hasilRows = [];
@@ -162,26 +198,45 @@ function uploadHasil(content) {
     const link = parts[2];
     hasilRows.push({ user, server: parts[1], link_invoice: link });
 
-    if (!user || index[user] === undefined) {
+    const inMain = !!user && indexMain[user] !== undefined;
+    const inSheet2 = !!user && indexSheet2[user] !== undefined;
+
+    if (!inMain && !inSheet2) {
       missing.push(user);
       return;
     }
-    rows[index[user]].jumlah = 1;
-    rows[index[user]].link_invoice = link;
+
+    if (inMain) {
+      mainRows[indexMain[user]].jumlah = 1;
+      mainRows[indexMain[user]].link_invoice = link;
+      matched_main++;
+    }
+    if (inSheet2) {
+      sheet2Rows[indexSheet2[user]].jumlah = 1;
+      sheet2Rows[indexSheet2[user]].link_invoice = link;
+      matched_sheet2++;
+    }
     matched++;
   });
 
   const existingHasil = fs.existsSync(HASIL_TXT) ? fs.readFileSync(HASIL_TXT, 'utf8') : '';
   fs.writeFileSync(HASIL_TXT, mergeLinesByUser(existingHasil, content, 3));
 
-  data.rows = rows;
-  data.hasil_updated_at = new Date().toISOString();
-  data.row_count = rows.length;
-  writeJson(USERWDP_JSON, data);
+  mainData.rows = mainRows;
+  mainData.hasil_updated_at = new Date().toISOString();
+  mainData.row_count = mainRows.length;
+  writeJson(USERWDP_JSON, mainData);
+
+  sheet2Data.rows = sheet2Rows;
+  sheet2Data.hasil_updated_at = new Date().toISOString();
+  sheet2Data.row_count = sheet2Rows.length;
+  writeJson(USERWDP2_JSON, sheet2Data);
 
   return {
     ok: true,
     matched,
+    matched_main,
+    matched_sheet2,
     missing: [...new Set(missing.filter(Boolean))],
     hasil_count: hasilRows.length,
     hasil_total: parseLines(fs.readFileSync(HASIL_TXT, 'utf8')).length,
@@ -228,7 +283,7 @@ function loadHasilMap() {
     if (/^user\|/i.test(line)) return;
     const parts = line.split('|').map((p) => p.trim());
     const user = normalizeUserId(parts[0]);
-    if (user) map[user] = true;
+    if (user) map[user] = parts[2] || true;
   });
   return map;
 }
@@ -253,8 +308,9 @@ function classifyRow(row, hasilMap, limitMap) {
   return { status: 'zonk', sort: 2, hasil: '' };
 }
 
-function getSheetData() {
-  const data = readJson(USERWDP_JSON);
+function buildSheetPayload(sheetKey = 'main') {
+  const store = getSheetStore(sheetKey);
+  const data = readJson(store.json);
   const hasilMap = loadHasilMap();
   const limitMap = loadLimitMap();
   const rows = data.rows || [];
@@ -284,6 +340,7 @@ function getSheetData() {
   });
 
   return {
+    sheet: sheetKey,
     updated_at: data.updated_at || null,
     row_count: finalRows.length,
     counts: {
@@ -295,9 +352,13 @@ function getSheetData() {
   };
 }
 
+function getSheetData(sheetKey = 'main') {
+  return buildSheetPayload(sheetKey);
+}
+
 function resetData() {
   ensureDataDir();
-  const targets = [USERWDP_JSON, USERWDP_TXT, HASIL_TXT, LIMIT_TXT];
+  const targets = [USERWDP_JSON, USERWDP_TXT, USERWDP2_JSON, USERWDP2_TXT, HASIL_TXT, LIMIT_TXT];
   const deleted = [];
 
   targets.forEach((file) => {
@@ -317,25 +378,33 @@ function resetData() {
 
 function getMeta() {
   ensureDataDir();
-  const data = readJson(USERWDP_JSON);
-  const sheet = getSheetData();
+  const mainData = readJson(USERWDP_JSON);
+  const sheet2Data = readJson(USERWDP2_JSON);
+  const sheetMain = fs.existsSync(USERWDP_JSON) ? buildSheetPayload('main') : { counts: { sukses: 0, limit: 0, zonk: 0 }, row_count: 0 };
+  const sheet2 = fs.existsSync(USERWDP2_JSON) ? buildSheetPayload('sheet2') : { counts: { sukses: 0, limit: 0, zonk: 0 }, row_count: 0 };
 
   return {
     userwdp: {
       exists: fs.existsSync(USERWDP_JSON),
-      updated_at: data.updated_at || null,
-      row_count: data.row_count || 0,
+      updated_at: mainData.updated_at || null,
+      row_count: mainData.row_count || 0,
+    },
+    userwdp2: {
+      exists: fs.existsSync(USERWDP2_JSON),
+      updated_at: sheet2Data.updated_at || null,
+      row_count: sheet2Data.row_count || 0,
     },
     hasil: {
       exists: fs.existsSync(HASIL_TXT),
-      updated_at: data.hasil_updated_at || null,
+      updated_at: mainData.hasil_updated_at || sheet2Data.hasil_updated_at || null,
       line_count: fs.existsSync(HASIL_TXT) ? parseLines(fs.readFileSync(HASIL_TXT, 'utf8')).length : 0,
     },
     limit: {
       exists: fs.existsSync(LIMIT_TXT),
       line_count: fs.existsSync(LIMIT_TXT) ? parseLines(fs.readFileSync(LIMIT_TXT, 'utf8')).length : 0,
     },
-    sheet_counts: sheet.counts,
+    sheet_counts: sheetMain.counts,
+    sheet2_counts: sheet2.counts,
   };
 }
 
@@ -347,4 +416,5 @@ module.exports = {
   getSheetData,
   getMeta,
   USERWDP_JSON,
+  USERWDP2_JSON,
 };
