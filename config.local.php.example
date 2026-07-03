@@ -4,10 +4,11 @@
  * Salin ke config.local.php lalu sesuaikan.
  */
 return [
-    'api_url' => 'http://127.0.0.1:8080',
+    // Opsional — default VPS ada di controller.php (VPS_IP / VPS_PORT)
+    'api_url' => 'http://213.163.195.93:8080',
     'default_files' => [
-        'userwdp' => 'userwdp.txt',
-        'hasil' => 'hasil.txt',
-        'limit' => 'userlimit.txt',
+        'userwdp' => 'data/userwdp.txt',
+        'hasil' => 'data/hasil.txt',
+        'limit' => 'data/userlimit.txt',
     ],
 ];

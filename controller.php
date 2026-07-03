@@ -7,6 +7,30 @@ require_once __DIR__ . '/lib/ApiClient.php';
 
 date_default_timezone_set('Asia/Jakarta');
 
+// === KONFIGURASI VPS — ganti IP/port di sini saat pindah server ===
+const VPS_IP = '213.163.195.93';
+const VPS_PORT = 8080;
+
+const DEFAULT_FILE_USERWDP = 'data/userwdp.txt';
+const DEFAULT_FILE_HASIL = 'data/hasil.txt';
+const DEFAULT_FILE_LIMIT = 'data/userlimit.txt';
+
+function defaultApiUrl(): string
+{
+    return 'http://' . VPS_IP . ':' . VPS_PORT;
+}
+
+function resolveDataPath(string $path): string
+{
+    if ($path === '') {
+        return $path;
+    }
+    if ($path[0] === '/' || $path[0] === '\\' || preg_match('/^[A-Za-z]:[\\\\\\/]/', $path)) {
+        return $path;
+    }
+    return __DIR__ . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+}
+
 function parseCliArgv(array $argv): array
 {
     $api = null;
@@ -38,11 +62,11 @@ function parseCliArgv(array $argv): array
 function loadConfig(?string $apiOverride = null): array
 {
     $config = [
-        'api_url' => getenv('WDP_API_URL') ?: 'http://127.0.0.1:8080',
+        'api_url' => getenv('WDP_API_URL') ?: defaultApiUrl(),
         'default_files' => [
-            'userwdp' => getenv('WDP_FILE_USERWDP') ?: 'userwdp.txt',
-            'hasil' => getenv('WDP_FILE_HASIL') ?: 'hasil.txt',
-            'limit' => getenv('WDP_FILE_LIMIT') ?: 'userlimit.txt',
+            'userwdp' => getenv('WDP_FILE_USERWDP') ?: DEFAULT_FILE_USERWDP,
+            'hasil' => getenv('WDP_FILE_HASIL') ?: DEFAULT_FILE_HASIL,
+            'limit' => getenv('WDP_FILE_LIMIT') ?: DEFAULT_FILE_LIMIT,
         ],
     ];
 
@@ -52,6 +76,10 @@ function loadConfig(?string $apiOverride = null): array
         if (is_array($override)) {
             $config = array_replace_recursive($config, $override);
         }
+    }
+
+    foreach ($config['default_files'] as $key => $path) {
+        $config['default_files'][$key] = resolveDataPath((string) $path);
     }
 
     if ($apiOverride) {
@@ -162,7 +190,8 @@ if ($cli['command'] !== null && $cli['command'] !== '') {
 }
 
 echo PHP_EOL . '=== WDP Controller ===' . PHP_EOL;
-echo 'API: ' . $api->getBaseUrl() . PHP_EOL;
+echo 'VPS  : ' . VPS_IP . ':' . VPS_PORT . PHP_EOL;
+echo 'API  : ' . $api->getBaseUrl() . PHP_EOL;
 if (!ensureApiOnline($api)) {
     exit(1);
 }
