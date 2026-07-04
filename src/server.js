@@ -3,6 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const store = require('./store');
+const gopay = require('./gopay');
+const cek = require('./cek');
 
 const PORT = Number(process.env.WDP_PORT || 8080);
 const HOST = process.env.WDP_HOST || '0.0.0.0';
@@ -111,6 +113,33 @@ app.post('/api/reset', (req, res) => {
   }
 });
 
+app.post('/api/cek/parse', (req, res) => {
+  try {
+    const text = typeof req.body === 'string'
+      ? req.body
+      : (req.body?.text || req.body?.content || '');
+    const parsed = cek.parseUserInput(text);
+    sendOk(res, { ok: true, ...parsed, count: parsed.users.length });
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
+app.post('/api/cek/inquiry', async (req, res) => {
+  try {
+    const body = typeof req.body === 'object' && req.body ? req.body : {};
+    const userId = String(body.userId || '').trim();
+    const zoneId = String(body.zoneId || '').trim();
+    if (!userId || !zoneId) {
+      return sendErr(res, 'userId dan zoneId wajib diisi');
+    }
+    const result = await gopay.inquiryUser(userId, zoneId);
+    sendOk(res, result);
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
 app.get('/health', (req, res) => {
   sendOk(res, { ok: true, service: 'wdp-sheet', port: PORT });
 });
@@ -127,6 +156,10 @@ app.get('/sheet2', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'sheet2.html'));
 });
 
+app.get('/cek', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'cek.html'));
+});
+
 app.use(express.static(PUBLIC_DIR));
 
 app.use((req, res) => {
@@ -137,4 +170,5 @@ app.listen(PORT, HOST, () => {
   console.log(`WDP Sheet API: http://${HOST}:${PORT}`);
   console.log(`Sheet utama:   http://${HOST}:${PORT}/sheet`);
   console.log(`Sheet order 2: http://${HOST}:${PORT}/sheet2`);
+  console.log(`Cek user MLBB: http://${HOST}:${PORT}/cek`);
 });

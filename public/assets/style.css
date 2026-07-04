@@ -251,3 +251,43 @@ button:disabled {
   background: #fed7aa;
   border: 1px solid #fdba74;
 }
+
+.cek-input-card {
+  margin-bottom: 8px;
+}
+
+.cek-input-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.cek-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.cek-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.cek-textarea:disabled {
+  background: #f9fafb;
+}
+
+.cek-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cek User MLBB - WDP</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jspreadsheet.min.css">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <div class="container sheet-wide">
+    <div class="header">
+      <div>
+        <h1>Cek User MLBB</h1>
+        <p>Inquiry ke GoPay — cek apakah user ID + zone ID support promo WDP.</p>
+      </div>
+      <div class="nav">
+        <a href="/sheet">Sheet Utama -></a>
+        <a href="/">Info</a>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch green"></i> <b>Bisa / Support</b></span>
+      <span><i class="swatch orange"></i> <b>Region tidak valid</b> (cannot procceed this sku)</span>
+      <span><i class="swatch red"></i> <b>User ID salah</b> (Error_InvalidZoneId)</span>
+    </div>
+
+    <div class="card cek-input-card">
+      <h2>Input User ID</h2>
+      <p class="cek-hint">Satu user per baris. Format otomatis: <code>user|id</code>, <code>user-id</code>, <code>user (id)</code>, <code>user id</code></p>
+      <textarea id="inputUsers" class="cek-textarea" rows="8" placeholder="920901679|12648&#10;734707338-8946&#10;936930462 (12708)&#10;1537449616 16431"></textarea>
+      <div class="cek-toolbar">
+        <button id="btnCek" type="button">Cek Sekarang</button>
+        <button id="btnStop" type="button" class="btn-danger" disabled>Stop</button>
+        <button id="btnCopyAll" type="button" class="btn-secondary">Copy Semua</button>
+        <button id="btnClearSheet" type="button" class="btn-secondary">Bersihkan Sheet</button>
+        <span id="parseInfo" class="sheet-stats"></span>
+      </div>
+      <div id="cekError" class="status err"></div>
+      <div id="cekProgress" class="status ok"></div>
+    </div>
+
+    <div class="sheet-toolbar" style="margin-top:20px;">
+      <div id="sheetStats" class="sheet-stats"></div>
+      <span id="copyToast" class="copy-toast"></span>
+    </div>
+
+    <div id="spreadsheet-wrap" class="sheet-scroll-wrap">
+      <div id="spreadsheet"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/index.min.js"></script>
+  <script>
+    const PATTERNS = [
+      /^(\d+)\s*\|\s*(\d+)/,
+      /^(\d+)\s*-\s*(\d+)/,
+      /^(\d+)\s*\(\s*(\d+)\s*\)/,
+      /^(\d+)\s+(\d+)/,
+    ];
+
+    let sheetInstance = null;
+    let sheetRows = [];
+    let checking = false;
+    let stopRequested = false;
+
+    const inputEl = document.getElementById('inputUsers');
+    const btnCek = document.getElementById('btnCek');
+    const btnStop = document.getElementById('btnStop');
+    const btnCopyAll = document.getElementById('btnCopyAll');
+    const btnClearSheet = document.getElementById('btnClearSheet');
+    const parseInfoEl = document.getElementById('parseInfo');
+    const cekErrorEl = document.getElementById('cekError');
+    const cekProgressEl = document.getElementById('cekProgress');
+    const sheetStatsEl = document.getElementById('sheetStats');
+    const copyToastEl = document.getElementById('copyToast');
+
+    function parseUserInput(text) {
+      const results = [];
+      const errors = [];
+      const seen = new Set();
+
+      String(text || '').split(/\r?\n/).forEach((rawLine, index) => {
+        const line = rawLine.trim();
+        if (!line || /^user\s*\|/i.test(line)) return;
+
+        let userId = null;
+        let zoneId = null;
+        for (const pattern of PATTERNS) {
+          const match = line.match(pattern);
+          if (match) {
+            userId = match[1];
+            zoneId = match[2];
+            break;
+          }
+        }
+
+        if (!userId || !zoneId) {
+          errors.push(`Baris ${index + 1}: format tidak dikenali`);
+          return;
+        }
+
+        const key = `${userId}|${zoneId}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        results.push({ userId, zoneId });
+      });
+
+      return { users: results, errors };
+    }
+
+    function updateParseInfo() {
+      const parsed = parseUserInput(inputEl.value);
+      const errPart = parsed.errors.length ? ` | ${parsed.errors.length} baris error` : '';
+      parseInfoEl.textContent = `${parsed.users.length} user siap dicek${errPart}`;
+    }
+
+    function rowsToGrid(rows) {
+      return rows.map((r) => [
+        String(r.userId),
+        String(r.zoneId),
+        String(r.label || ''),
+        String(r.message || ''),
+        String(r.http || ''),
+      ]);
+    }
+
+    function styleSheetCell(instance, cell, x, y) {
+      const row = sheetRows[y];
+      if (!row) return;
+      if (x === 2) {
+        if (row.status === 'region_invalid') {
+          cell.style.backgroundColor = '#fff7ed';
+          cell.style.color = '#9a3412';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'user_invalid') {
+          cell.style.backgroundColor = '#ff0000';
+          cell.style.color = '#ffffff';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'valid') {
+          cell.style.backgroundColor = '#ecfdf5';
+          cell.style.color = '#065f46';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'error') {
+          cell.style.backgroundColor = '#fef2f2';
+          cell.style.color = '#991b1b';
+        } else {
+          cell.style.backgroundColor = '';
+          cell.style.color = '';
+          cell.style.fontWeight = '';
+        }
+      }
+    }
+
+    function buildSheet(rows) {
+      const grid = rowsToGrid(rows);
+      const wrap = document.getElementById('spreadsheet');
+      wrap.innerHTML = '';
+
+      sheetInstance = jspreadsheet(wrap, {
+        data: grid,
+        columns: [
+          { type: 'text', title: 'User ID', width: 140, readOnly: true },
+          { type: 'text', title: 'Zone ID', width: 100, readOnly: true },
+          { type: 'text', title: 'Status', width: 160, readOnly: true },
+          { type: 'text', title: 'Response', width: 420, readOnly: true },
+          { type: 'text', title: 'HTTP', width: 60, readOnly: true },
+        ],
+        tableOverflow: true,
+        tableWidth: '100%',
+        tableHeight: '420px',
+        allowInsertRow: false,
+        allowDeleteRow: false,
+        allowInsertColumn: false,
+        allowDeleteColumn: false,
+        columnSorting: false,
+        updateTable(instance, cell, x, y) {
+          styleSheetCell(instance, cell, x, y);
+        },
+      });
+
+      updateStats();
+    }
+
+    function appendRow(row) {
+      sheetRows.push(row);
+      if (!sheetInstance) {
+        buildSheet(sheetRows);
+        return;
+      }
+      sheetInstance.insertRow([
+        String(row.userId),
+        String(row.zoneId),
+        String(row.label || ''),
+        String(row.message || ''),
+        String(row.http || ''),
+      ]);
+      const lastIndex = sheetRows.length - 1;
+      for (let x = 0; x < 5; x += 1) {
+        const cell = sheetInstance.records[lastIndex][x];
+        if (cell) styleSheetCell(sheetInstance, cell, x, lastIndex);
+      }
+      updateStats();
+    }
+
+    function updateStats() {
+      const counts = { valid: 0, region_invalid: 0, user_invalid: 0, error: 0 };
+      sheetRows.forEach((r) => {
+        if (counts[r.status] !== undefined) counts[r.status] += 1;
+      });
+      sheetStatsEl.textContent = `Total dicek: ${sheetRows.length} | Bisa: ${counts.valid} | Region invalid: ${counts.region_invalid} | User salah: ${counts.user_invalid} | Error: ${counts.error}`;
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function inquiryOne(userId, zoneId) {
+      const res = await fetch('/api/cek/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, zoneId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    async function runCheck() {
+      const parsed = parseUserInput(inputEl.value);
+      cekErrorEl.textContent = '';
+      cekProgressEl.textContent = '';
+
+      if (!parsed.users.length) {
+        cekErrorEl.textContent = parsed.errors.length
+          ? 'Tidak ada user valid. Periksa format input.'
+          : 'Input kosong. Masukkan minimal 1 user.';
+        return;
+      }
+
+      if (parsed.errors.length) {
+        cekErrorEl.textContent = `${parsed.errors.length} baris diabaikan (format tidak dikenali).`;
+      }
+
+      checking = true;
+      stopRequested = false;
+      btnCek.disabled = true;
+      btnStop.disabled = false;
+      inputEl.disabled = true;
+
+      const total = parsed.users.length;
+      for (let i = 0; i < total; i += 1) {
+        if (stopRequested) {
+          cekProgressEl.textContent = `Dihentikan pada ${i}/${total}`;
+          break;
+        }
+
+        const user = parsed.users[i];
+        cekProgressEl.textContent = `Mengecek ${i + 1}/${total}: ${user.userId}|${user.zoneId} ...`;
+
+        try {
+          const result = await inquiryOne(user.userId, user.zoneId);
+          appendRow(result);
+        } catch (err) {
+          appendRow({
+            userId: user.userId,
+            zoneId: user.zoneId,
+            status: 'error',
+            label: 'Error',
+            http: 0,
+            message: err.message,
+          });
+        }
+
+        if (i < total - 1 && !stopRequested) {
+          await sleep(1000);
+        }
+      }
+
+      if (!stopRequested) {
+        cekProgressEl.textContent = `Selesai — ${sheetRows.length} user dicek.`;
+      }
+
+      checking = false;
+      btnCek.disabled = false;
+      btnStop.disabled = true;
+      inputEl.disabled = false;
+    }
+
+    function rowsToCopyText(rows) {
+      return rows.map((r) => [
+        String(r.userId),
+        String(r.zoneId),
+        String(r.label || ''),
+        String(r.message || ''),
+        String(r.http || ''),
+      ].join('\t')).join('\r\n');
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+
+    async function copyAll() {
+      if (!sheetRows.length) {
+        copyToastEl.textContent = 'Sheet masih kosong';
+        setTimeout(() => { copyToastEl.textContent = ''; }, 2000);
+        return;
+      }
+      const text = rowsToCopyText(sheetRows);
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        fallbackCopyText(text);
+      }
+      copyToastEl.textContent = `Copied ${sheetRows.length} baris`;
+      setTimeout(() => { copyToastEl.textContent = ''; }, 2000);
+    }
+
+    function clearSheet() {
+      if (checking) return;
+      sheetRows = [];
+      sheetInstance = null;
+      document.getElementById('spreadsheet').innerHTML = '';
+      sheetStatsEl.textContent = '';
+      cekProgressEl.textContent = '';
+    }
+
+    btnCek.addEventListener('click', runCheck);
+    btnStop.addEventListener('click', () => { stopRequested = true; });
+    btnCopyAll.addEventListener('click', copyAll);
+    btnClearSheet.addEventListener('click', clearSheet);
+    inputEl.addEventListener('input', updateParseInfo);
+
+    buildSheet([]);
+    updateParseInfo();
+  </script>
+</body>
+</html>
