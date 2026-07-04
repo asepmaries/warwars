@@ -25,6 +25,7 @@
       <span>Jumlah = <b>1</b> (order 1x, semua user)</span>
       <span><i class="swatch green"></i> Hasil <b>1</b> = dapat invoice (paling atas)</span>
       <span><i class="swatch red"></i> Hasil <b>limit</b> = user limit (urutan ke-2)</span>
+      <span><i class="swatch orange"></i> Hasil <b>region_invalid</b> = region tidak valid (urutan ke-3)</span>
       <span>Zonk = kolom Hasil kosong (paling bawah)</span>
     </div>
 
@@ -48,12 +49,19 @@
     let sheetInstance = null;
     let sheetRows = [];
 
+    function hasilValue(row) {
+      if (row.status === 'limit') return 'limit';
+      if (row.status === 'region_invalid') return 'region_invalid';
+      if (row.status === 'sukses') return '1';
+      return String(row.hasil || '');
+    }
+
     function rowsToGrid(rows) {
       return rows.map((r) => [
         String(r.user),
         String(r.server),
         String(r.jumlah || '1'),
-        String(r.hasil || ''),
+        hasilValue(r),
         String(r.link_invoice || ''),
       ]);
     }
@@ -66,6 +74,10 @@
         if (row.status === 'limit') {
           cell.style.backgroundColor = '#ff0000';
           cell.style.color = '#ffffff';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'region_invalid') {
+          cell.style.backgroundColor = '#fff7ed';
+          cell.style.color = '#9a3412';
           cell.style.fontWeight = '600';
         } else if (row.status === 'sukses') {
           cell.style.backgroundColor = '#ecfdf5';
@@ -105,6 +117,10 @@
           if (row.status === 'limit') {
             cell.style.backgroundColor = '#ff0000';
             cell.style.color = '#ffffff';
+            cell.style.fontWeight = '600';
+          } else if (row.status === 'region_invalid') {
+            cell.style.backgroundColor = '#fff7ed';
+            cell.style.color = '#9a3412';
             cell.style.fontWeight = '600';
           } else if (row.status === 'sukses') {
             cell.style.backgroundColor = '#ecfdf5';
@@ -161,9 +177,9 @@
         String(r.user),
         String(r.server),
         String(r.jumlah || '1'),
-        String(r.hasil || ''),
+        hasilValue(r),
         String(r.link_invoice || ''),
-      ].join('\t')).join('\n');
+      ].join('\t')).join('\r\n');
     }
 
     function fallbackCopyText(text) {
@@ -247,7 +263,7 @@
         sheetRows = data.rows || [];
         buildSheet(sheetRows);
         const c = data.counts || {};
-        statsEl.textContent = `Total: ${data.row_count} | Sukses: ${c.sukses || 0} | Limit: ${c.limit || 0} | Zonk: ${c.zonk || 0}`;
+        statsEl.textContent = `Total: ${data.row_count} | Sukses: ${c.sukses || 0} | Limit: ${c.limit || 0} | Region: ${c.region_invalid || 0} | Zonk: ${c.zonk || 0}`;
       } catch (err) {
         errEl.textContent = 'Error: ' + err.message;
         statsEl.textContent = '';
@@ -255,7 +271,7 @@
     }
 
     async function resetData() {
-      const answer = prompt('Hapus semua data user, hasil, dan limit?\nKetik y untuk lanjut:');
+      const answer = prompt('Hapus semua data user, hasil, limit, dan region?\nKetik y untuk lanjut:');
       if (!answer || answer.trim().toLowerCase() !== 'y') {
         return;
       }

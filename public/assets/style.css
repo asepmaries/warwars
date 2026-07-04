@@ -246,3 +246,8 @@ button:disabled {
   background: #d1fae5;
   border: 1px solid #86efac;
 }
+
+.swatch.orange {
+  background: #fed7aa;
+  border: 1px solid #fdba74;
+}
