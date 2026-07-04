@@ -253,6 +253,23 @@
       btnStop.disabled = false;
       inputEl.disabled = true;
 
+      try {
+        cekProgressEl.textContent = 'Mengambil captcha token baru...';
+        const beginRes = await fetch('/api/cek/begin', { method: 'POST' });
+        const beginData = await beginRes.json();
+        if (!beginRes.ok) {
+          throw new Error(beginData.error || `HTTP ${beginRes.status}`);
+        }
+        cekProgressEl.textContent = `Captcha siap (${beginData.token_length} char). Memulai cek...`;
+      } catch (err) {
+        cekErrorEl.textContent = 'Gagal ambil captcha: ' + err.message;
+        checking = false;
+        btnCek.disabled = false;
+        btnStop.disabled = true;
+        inputEl.disabled = false;
+        return;
+      }
+
       const total = parsed.users.length;
       for (let i = 0; i < total; i += 1) {
         if (stopRequested) {

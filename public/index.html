@@ -50,6 +50,7 @@ curl -X POST --data-binary @region.txt http://IP:8080/api/upload-region</pre>
         <h2>Cek User MLBB</h2>
         <p>Inquiry ke GoPay — deteksi region invalid, user salah, atau support.</p>
         <p>Input: <code>user|id</code>, <code>user-id</code>, <code>user (id)</code>, banyak baris.</p>
+        <p>Captcha auto dari <code>files/reload.txt</code> — refresh tiap klik Cek Sekarang.</p>
         <a class="btn btn-primary" href="/cek">Buka /cek</a>
       </div>
 
@@ -64,7 +65,7 @@ curl -X POST --data-binary @region.txt http://IP:8080/api/upload-region</pre>
         <p><code>GET /api/sheet</code> | <code>GET /api/sheet2</code></p>
         <p><code>POST /api/upload</code> | <code>POST /api/upload-sheet2</code></p>
         <p><code>POST /api/upload-hasil</code> | <code>POST /api/upload-limit</code> | <code>POST /api/upload-region</code></p>
-        <p><code>POST /api/cek/inquiry</code> | <code>POST /api/cek/parse</code></p>
+        <p><code>POST /api/cek/begin</code> | <code>POST /api/cek/inquiry</code> | <code>POST /api/cek/parse</code></p>
         <p><code>POST /api/reset</code></p>
         <p><code>GET /health</code></p>
       </div>

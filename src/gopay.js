@@ -88,40 +88,20 @@ function buildInquiryBody(userId, zoneId) {
   };
 }
 
-function captchaPaths() {
-  return [
-    process.env.WDP_CAPTCHA_FILE,
-    path.join(DATA_DIR, 'captcha_token.txt'),
-    path.join(ROOT, 'captcha_token.txt'),
-    path.join(ROOT, '..', 'captcha_token.txt'),
-  ].filter(Boolean);
-}
-
 function reloadPaths() {
   return [
     process.env.WDP_RELOAD_FILE,
+    path.join(ROOT, 'files', 'reload.txt'),
     path.join(DATA_DIR, 'reload.txt'),
     path.join(ROOT, 'reload.txt'),
     path.join(ROOT, '..', 'reload.txt'),
   ].filter(Boolean);
 }
 
-function readCaptchaFromFile() {
-  if (process.env.WDP_CAPTCHA_TOKEN) {
-    return process.env.WDP_CAPTCHA_TOKEN.trim();
-  }
-  for (const file of captchaPaths()) {
-    if (!fs.existsSync(file)) continue;
-    const token = fs.readFileSync(file, 'utf8').trim();
-    if (token) return token;
-  }
-  return null;
-}
-
 async function fetchFreshCaptchaToken() {
   const reloadFile = reloadPaths().find((file) => fs.existsSync(file));
   if (!reloadFile) {
-    throw new Error('Captcha tidak ada. Set WDP_CAPTCHA_TOKEN atau letakkan captcha_token.txt di folder data/');
+    throw new Error('File reload.txt tidak ditemukan. Letakkan di folder files/ atau data/');
   }
 
   const reloadBody = fs.readFileSync(reloadFile);
@@ -166,18 +146,21 @@ async function fetchFreshCaptchaToken() {
   return token;
 }
 
-async function getCaptchaToken(forceRefresh = false) {
-  if (!forceRefresh && cachedCaptchaToken) {
-    return cachedCaptchaToken;
+function getSessionCaptchaToken() {
+  if (!cachedCaptchaToken) {
+    throw new Error('Sesi cek belum dimulai. Panggil /api/cek/begin terlebih dahulu.');
   }
-  if (!forceRefresh) {
-    const fromFile = readCaptchaFromFile();
-    if (fromFile) {
-      cachedCaptchaToken = fromFile;
-      return fromFile;
-    }
-  }
-  return fetchFreshCaptchaToken();
+  return cachedCaptchaToken;
+}
+
+async function beginCekSession() {
+  const token = await fetchFreshCaptchaToken();
+  return {
+    ok: true,
+    refreshed: true,
+    token_length: token.length,
+    reload_file: reloadPaths().find((file) => fs.existsSync(file)) || null,
+  };
 }
 
 function classifyCekResponse(httpCode, payload, rawText) {
@@ -224,7 +207,7 @@ function classifyCekResponse(httpCode, payload, rawText) {
 }
 
 async function inquiryUser(userId, zoneId) {
-  const captchaToken = await getCaptchaToken();
+  const captchaToken = getSessionCaptchaToken();
   const headers = buildInquiryHeaders(captchaToken);
   const body = buildInquiryBody(userId, zoneId);
 
@@ -270,6 +253,6 @@ async function inquiryUser(userId, zoneId) {
 
 module.exports = {
   inquiryUser,
-  getCaptchaToken,
+  beginCekSession,
   classifyCekResponse,
 };

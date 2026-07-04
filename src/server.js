@@ -113,6 +113,14 @@ app.post('/api/reset', (req, res) => {
   }
 });
 
+app.post('/api/cek/begin', async (req, res) => {
+  try {
+    sendOk(res, await gopay.beginCekSession());
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
 app.post('/api/cek/parse', (req, res) => {
   try {
     const text = typeof req.body === 'string'
