@@ -153,7 +153,7 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.redirect('/sheet');
+  res.redirect('/cek');
 });
 
 app.get('/sheet', (req, res) => {
