@@ -185,25 +185,28 @@
       updateStats();
     }
 
-    function appendRow(row) {
-      sheetRows.push(row);
+    function refreshSheet() {
+      const grid = rowsToGrid(sheetRows);
       if (!sheetInstance) {
         buildSheet(sheetRows);
         return;
       }
-      sheetInstance.insertRow([
-        String(row.userId),
-        String(row.zoneId),
-        String(row.label || ''),
-        String(row.message || ''),
-        String(row.http || ''),
-      ]);
-      const lastIndex = sheetRows.length - 1;
-      for (let x = 0; x < 5; x += 1) {
-        const cell = sheetInstance.records[lastIndex][x];
-        if (cell) styleSheetCell(sheetInstance, cell, x, lastIndex);
+      try {
+        if (typeof sheetInstance.setData === 'function') {
+          sheetInstance.setData(grid);
+        } else {
+          buildSheet(sheetRows);
+        }
+      } catch (err) {
+        console.warn('refreshSheet fallback rebuild:', err);
+        buildSheet(sheetRows);
       }
       updateStats();
+    }
+
+    function appendRow(row) {
+      sheetRows.push(row);
+      refreshSheet();
     }
 
     function updateStats() {
@@ -271,42 +274,56 @@
       }
 
       const total = parsed.users.length;
-      for (let i = 0; i < total; i += 1) {
-        if (stopRequested) {
-          cekProgressEl.textContent = `Dihentikan pada ${i}/${total}`;
-          break;
+      try {
+        for (let i = 0; i < total; i += 1) {
+          if (stopRequested) {
+            cekProgressEl.textContent = `Dihentikan pada ${i}/${total}`;
+            break;
+          }
+
+          const user = parsed.users[i];
+          cekProgressEl.textContent = `Mengecek ${i + 1}/${total}: ${user.userId}|${user.zoneId} ...`;
+
+          let rowData;
+          try {
+            rowData = await inquiryOne(user.userId, user.zoneId);
+          } catch (err) {
+            rowData = {
+              userId: user.userId,
+              zoneId: user.zoneId,
+              status: 'error',
+              label: 'Error',
+              http: 0,
+              message: err.message,
+            };
+          }
+
+          try {
+            appendRow(rowData);
+          } catch (sheetErr) {
+            console.error('Gagal update sheet:', sheetErr);
+          }
+
+          cekProgressEl.textContent = `Selesai ${i + 1}/${total}: ${user.userId}|${user.zoneId} — ${rowData.label || rowData.status}`;
+
+          if (i < total - 1 && !stopRequested) {
+            cekProgressEl.textContent += ' (jeda 1 detik...)';
+            await sleep(1000);
+          }
         }
 
-        const user = parsed.users[i];
-        cekProgressEl.textContent = `Mengecek ${i + 1}/${total}: ${user.userId}|${user.zoneId} ...`;
-
-        try {
-          const result = await inquiryOne(user.userId, user.zoneId);
-          appendRow(result);
-        } catch (err) {
-          appendRow({
-            userId: user.userId,
-            zoneId: user.zoneId,
-            status: 'error',
-            label: 'Error',
-            http: 0,
-            message: err.message,
-          });
+        if (!stopRequested) {
+          cekProgressEl.textContent = `Selesai — ${sheetRows.length} user dicek.`;
         }
-
-        if (i < total - 1 && !stopRequested) {
-          await sleep(1000);
-        }
+      } catch (fatalErr) {
+        cekErrorEl.textContent = 'Proses cek terhenti: ' + fatalErr.message;
+        console.error(fatalErr);
+      } finally {
+        checking = false;
+        btnCek.disabled = false;
+        btnStop.disabled = true;
+        inputEl.disabled = false;
       }
-
-      if (!stopRequested) {
-        cekProgressEl.textContent = `Selesai — ${sheetRows.length} user dicek.`;
-      }
-
-      checking = false;
-      btnCek.disabled = false;
-      btnStop.disabled = true;
-      inputEl.disabled = false;
     }
 
     function rowsToCopyText(rows) {
