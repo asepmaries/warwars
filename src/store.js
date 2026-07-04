@@ -95,15 +95,19 @@ function uploadUserWdp(content, sheetKey = 'main') {
   const store = getSheetStore(sheetKey);
   const data = readJson(store.json);
   const rows = data.rows || [];
+  const existingBefore = rows.length;
   const index = {};
   rows.forEach((row, i) => {
     index[row.user] = i;
   });
+  const originalUsers = new Set(Object.keys(index));
+  const seenIncoming = new Set();
 
   const errors = [];
   let added = 0;
   let updated = 0;
   let incoming = 0;
+  let duplicateInUpload = 0;
 
   parseLines(content).forEach((line, i) => {
     if (/^user\|/i.test(line)) return;
@@ -121,11 +125,19 @@ function uploadUserWdp(content, sheetKey = 'main') {
     incoming++;
     const server = parts[1];
     const jumlah = parseInt(parts[2], 10) || 0;
+    const alreadySeen = seenIncoming.has(user);
+    if (alreadySeen) {
+      duplicateInUpload++;
+    } else {
+      seenIncoming.add(user);
+    }
 
     if (index[user] !== undefined) {
       rows[index[user]].server = server;
       rows[index[user]].jumlah = jumlah;
-      updated++;
+      if (!alreadySeen && originalUsers.has(user)) {
+        updated++;
+      }
       return;
     }
 
@@ -136,7 +148,9 @@ function uploadUserWdp(content, sheetKey = 'main') {
       link_invoice: '',
     });
     index[user] = rows.length - 1;
-    added++;
+    if (!alreadySeen) {
+      added++;
+    }
   });
 
   if (!incoming && !errors.length) {
@@ -153,7 +167,19 @@ function uploadUserWdp(content, sheetKey = 'main') {
   data.rows = rows;
   writeJson(store.json, data);
 
-  return { ok: true, sheet: sheetKey, row_count: rows.length, added, updated, errors };
+  return {
+    ok: true,
+    sheet: sheetKey,
+    existing_before: existingBefore,
+    incoming,
+    incoming_unique: seenIncoming.size,
+    duplicate_in_upload: duplicateInUpload,
+    expected_row_count: existingBefore + added,
+    row_count: rows.length,
+    added,
+    updated,
+    errors,
+  };
 }
 
 function loadUserStores() {
