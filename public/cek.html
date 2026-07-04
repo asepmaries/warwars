@@ -13,18 +13,13 @@
     <div class="header">
       <div>
         <h1>Cek User MLBB</h1>
-        <p>Inquiry ke GoPay — cek apakah user ID + zone ID support promo WDP.</p>
-      </div>
-      <div class="nav">
-        <a href="/sheet">Sheet Utama -></a>
-        <a href="/">Info</a>
       </div>
     </div>
 
     <div class="legend">
       <span><i class="swatch green"></i> <b>Bisa / Support</b></span>
-      <span><i class="swatch orange"></i> <b>Region tidak valid</b> (cannot procceed this sku)</span>
-      <span><i class="swatch red"></i> <b>User ID salah</b> (Error_InvalidZoneId)</span>
+      <span><i class="swatch orange"></i> <b>Region tidak valid</b></span>
+      <span><i class="swatch red"></i> <b>User ID salah</b></span>
     </div>
 
     <div class="card cek-input-card">
@@ -123,8 +118,6 @@
         String(r.userId),
         String(r.zoneId),
         String(r.label || ''),
-        String(r.message || ''),
-        String(r.http || ''),
       ]);
     }
 
@@ -163,11 +156,9 @@
       sheetInstance = jspreadsheet(wrap, {
         data: grid,
         columns: [
-          { type: 'text', title: 'User ID', width: 140, readOnly: true },
-          { type: 'text', title: 'Zone ID', width: 100, readOnly: true },
-          { type: 'text', title: 'Status', width: 160, readOnly: true },
-          { type: 'text', title: 'Response', width: 420, readOnly: true },
-          { type: 'text', title: 'HTTP', width: 60, readOnly: true },
+          { type: 'text', title: 'User ID', width: 180, readOnly: true },
+          { type: 'text', title: 'Zone ID', width: 120, readOnly: true },
+          { type: 'text', title: 'Status', width: 220, readOnly: true },
         ],
         tableOverflow: true,
         tableWidth: '100%',
@@ -331,8 +322,6 @@
         String(r.userId),
         String(r.zoneId),
         String(r.label || ''),
-        String(r.message || ''),
-        String(r.http || ''),
       ].join('\t')).join('\r\n');
     }
 
