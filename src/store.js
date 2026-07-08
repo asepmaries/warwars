@@ -45,6 +45,10 @@ function normalizeUserId(value) {
   return text;
 }
 
+function makePairKey(user, server) {
+  return `${user}|${String(server || '').trim()}`;
+}
+
 function parseLines(content) {
   return String(content)
     .split(/\r?\n/)
@@ -80,7 +84,9 @@ function mergeLinesByUser(existingContent, newContent, minParts = 2) {
       if (parts.length < minParts) return;
       const user = normalizeUserId(parts[0]);
       if (!user) return;
-      map.set(user, parts.join('|'));
+      const idOrVal = parts[1] || '';
+      const key = (minParts >= 3) ? `${user}|${idOrVal}` : user;
+      map.set(key, parts.join('|'));
     });
   };
 
@@ -99,9 +105,10 @@ function uploadUserWdp(content, sheetKey = 'main') {
   const existingBefore = rows.length;
   const index = {};
   rows.forEach((row, i) => {
-    index[row.user] = i;
+    const k = makePairKey(row.user, row.server);
+    index[k] = i;
   });
-  const originalUsers = new Set(Object.keys(index));
+  const originalKeys = new Set(Object.keys(index));
   const seenIncoming = new Set();
 
   const errors = [];
@@ -126,17 +133,18 @@ function uploadUserWdp(content, sheetKey = 'main') {
     incoming++;
     const server = parts[1];
     const jumlah = parseInt(parts[2], 10) || 0;
-    const alreadySeen = seenIncoming.has(user);
+    const pairKey = makePairKey(user, server);
+    const alreadySeen = seenIncoming.has(pairKey);
     if (alreadySeen) {
       duplicateInUpload++;
     } else {
-      seenIncoming.add(user);
+      seenIncoming.add(pairKey);
     }
 
-    if (index[user] !== undefined) {
-      rows[index[user]].server = server;
-      rows[index[user]].jumlah = jumlah;
-      if (!alreadySeen && originalUsers.has(user)) {
+    if (index[pairKey] !== undefined) {
+      rows[index[pairKey]].server = server;
+      rows[index[pairKey]].jumlah = jumlah;
+      if (!alreadySeen && originalKeys.has(pairKey)) {
         updated++;
       }
       return;
@@ -148,7 +156,7 @@ function uploadUserWdp(content, sheetKey = 'main') {
       jumlah,
       link_invoice: '',
     });
-    index[user] = rows.length - 1;
+    index[pairKey] = rows.length - 1;
     if (!alreadySeen) {
       added++;
     }
@@ -190,13 +198,19 @@ function loadUserStores() {
   const sheet2Rows = sheet2Data.rows || [];
   const indexMain = {};
   const indexSheet2 = {};
+  const userMain = {};
+  const userSheet2 = {};
   mainRows.forEach((row, i) => {
-    indexMain[row.user] = i;
+    const k = makePairKey(row.user, row.server);
+    indexMain[k] = i;
+    if (userMain[row.user] === undefined) userMain[row.user] = i;
   });
   sheet2Rows.forEach((row, i) => {
-    indexSheet2[row.user] = i;
+    const k = makePairKey(row.user, row.server);
+    indexSheet2[k] = i;
+    if (userSheet2[row.user] === undefined) userSheet2[row.user] = i;
   });
-  return { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2 };
+  return { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2, userMain, userSheet2 };
 }
 
 function uploadHasil(content) {
@@ -205,7 +219,7 @@ function uploadHasil(content) {
     throw new Error('Upload user dulu sebelum upload hasil');
   }
 
-  const { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2 } = loadUserStores();
+  const { mainData, sheet2Data, mainRows, sheet2Rows, indexMain, indexSheet2, userMain, userSheet2 } = loadUserStores();
 
   let matched = 0;
   let matched_main = 0;
@@ -223,10 +237,18 @@ function uploadHasil(content) {
     }
     const user = normalizeUserId(parts[0]);
     const link = parts[2];
-    hasilRows.push({ user, server: parts[1], link_invoice: link });
+    const server = parts[1];
+    hasilRows.push({ user, server, link_invoice: link });
 
-    const inMain = !!user && indexMain[user] !== undefined;
-    const inSheet2 = !!user && indexSheet2[user] !== undefined;
+    const pairKey = makePairKey(user, server);
+    let inMain = !!user && indexMain[pairKey] !== undefined;
+    let inSheet2 = !!user && indexSheet2[pairKey] !== undefined;
+
+    if (!inMain && !inSheet2) {
+      // fallback: user has at least one server entry
+      if (userMain[user] !== undefined) inMain = true;
+      if (userSheet2[user] !== undefined) inSheet2 = true;
+    }
 
     if (!inMain && !inSheet2) {
       missing.push(user);
@@ -234,13 +256,15 @@ function uploadHasil(content) {
     }
 
     if (inMain) {
-      mainRows[indexMain[user]].jumlah = 1;
-      mainRows[indexMain[user]].link_invoice = link;
+      const idx = (indexMain[pairKey] !== undefined) ? indexMain[pairKey] : userMain[user];
+      mainRows[idx].jumlah = 1;
+      mainRows[idx].link_invoice = link;
       matched_main++;
     }
     if (inSheet2) {
-      sheet2Rows[indexSheet2[user]].jumlah = 1;
-      sheet2Rows[indexSheet2[user]].link_invoice = link;
+      const idx = (indexSheet2[pairKey] !== undefined) ? indexSheet2[pairKey] : userSheet2[user];
+      sheet2Rows[idx].jumlah = 1;
+      sheet2Rows[idx].link_invoice = link;
       matched_sheet2++;
     }
     matched++;
