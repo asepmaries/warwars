@@ -446,8 +446,8 @@ function classifyRow(row, hasilMap, limitMap, regionMap, salahMap = {}) {
   if (gotInvoice) return { status: 'sukses', sort: 0, hasil: '1' };
   if (limitMap[user]) return { status: 'limit', sort: 1, hasil: 'limit' };
   if (regionMap[user]) return { status: 'region_invalid', sort: 2, hasil: 'region_invalid' };
-  if (salahMap[user]) return { status: 'userid_salah', sort: 4, hasil: 'userid_salah' };
-  return { status: 'zonk', sort: 3, hasil: '' };
+  if (salahMap[user]) return { status: 'userid_salah', sort: 3, hasil: 'userid_salah' };
+  return { status: 'zonk', sort: 4, hasil: '' };
 }
 
 function buildSheetPayload(sheetKey = 'main') {
@@ -459,7 +459,28 @@ function buildSheetPayload(sheetKey = 'main') {
   const salahMap = loadSalahMap();
   const rows = data.rows || [];
 
-  const enriched = rows.map((row, i) => ({
+  // Include userid_salah users for display in sheet (even if removed from main user list)
+  let displayRows = [...rows];
+  if (fs.existsSync(SALAH_TXT)) {
+    parseLines(fs.readFileSync(SALAH_TXT, 'utf8')).forEach((line) => {
+      if (/^user\|/i.test(line)) return;
+      const parts = line.split('|').map((p) => p.trim());
+      if (parts.length < 2 || !parts[0]) return;
+      const u = normalizeUserId(parts[0]);
+      const s = parts[1] || '';
+      const exists = displayRows.some((r) => r.user === u && (r.server || '') === s);
+      if (!exists) {
+        displayRows.push({
+          user: u,
+          server: s,
+          jumlah: '1',
+          link_invoice: '',
+        });
+      }
+    });
+  }
+
+  const enriched = displayRows.map((row, i) => ({
     ...row,
     ...classifyRow(row, hasilMap, limitMap, regionMap, salahMap),
     _order: i,
