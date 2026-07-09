@@ -176,7 +176,8 @@ function classifyCekResponse(httpCode, payload, rawText) {
     };
   }
 
-  if (message === 'Error_InvalidZoneId' || lower.includes('error_invalidzoneid')) {
+  if (message === 'Error_InvalidZoneId' || lower.includes('error_invalidzoneid') ||
+      message === 'Error_Role_Null' || lower.includes('error_role_null') || lower.includes('role_null')) {
     return {
       status: 'user_invalid',
       label: 'User ID salah',
