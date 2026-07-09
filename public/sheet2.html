@@ -26,6 +26,7 @@
       <span><i class="swatch green"></i> Hasil <b>1</b> = dapat invoice (paling atas)</span>
       <span><i class="swatch red"></i> Hasil <b>limit</b> = user limit (urutan ke-2)</span>
       <span><i class="swatch orange"></i> Hasil <b>region_invalid</b> = region tidak valid (urutan ke-3)</span>
+      <span><i class="swatch gray"></i> Hasil <b>userid_salah</b> = user ID salah / Error_Role_Null (tidak valid)</span>
       <span>Zonk = kolom Hasil kosong (paling bawah)</span>
     </div>
 
@@ -52,6 +53,7 @@
     function hasilValue(row) {
       if (row.status === 'limit') return 'limit';
       if (row.status === 'region_invalid') return 'region_invalid';
+      if (row.status === 'userid_salah') return 'userid_salah';
       if (row.status === 'sukses') return '1';
       return String(row.hasil || '');
     }
@@ -78,6 +80,10 @@
         } else if (row.status === 'region_invalid') {
           cell.style.backgroundColor = '#fff7ed';
           cell.style.color = '#9a3412';
+          cell.style.fontWeight = '600';
+        } else if (row.status === 'userid_salah') {
+          cell.style.backgroundColor = '#6b7280';
+          cell.style.color = '#ffffff';
           cell.style.fontWeight = '600';
         } else if (row.status === 'sukses') {
           cell.style.backgroundColor = '#ecfdf5';
@@ -263,7 +269,7 @@
         sheetRows = data.rows || [];
         buildSheet(sheetRows);
         const c = data.counts || {};
-        statsEl.textContent = `Order 2 - Total: ${data.row_count} | Sukses: ${c.sukses || 0} | Limit: ${c.limit || 0} | Region: ${c.region_invalid || 0} | Zonk: ${c.zonk || 0}`;
+        statsEl.textContent = `Order 2 - Total: ${data.row_count} | Sukses: ${c.sukses || 0} | Limit: ${c.limit || 0} | Region: ${c.region_invalid || 0} | Salah: ${c.userid_salah || 0} | Zonk: ${c.zonk || 0}`;
       } catch (err) {
         errEl.textContent = 'Error: ' + err.message;
         statsEl.textContent = '';
@@ -271,7 +277,7 @@
     }
 
     async function resetData() {
-      const answer = prompt('Hapus semua data user, hasil, limit, dan region?\nKetik y untuk lanjut:');
+      const answer = prompt('Hapus semua data user, hasil, limit, region, dan userid_salah?\nKetik y untuk lanjut:');
       if (!answer || answer.trim().toLowerCase() !== 'y') {
         return;
       }

@@ -87,6 +87,16 @@ app.post('/api/upload-region', upload.single('file'), (req, res) => {
   }
 });
 
+app.post('/api/upload-salah', upload.single('file'), (req, res) => {
+  try {
+    const content = readBodyContent(req);
+    if (!content.trim()) return sendErr(res, 'File kosong');
+    sendOk(res, store.uploadSalah(content));
+  } catch (e) {
+    sendErr(res, e.message);
+  }
+});
+
 app.get('/api/sheet', (req, res) => {
   if (!fs.existsSync(store.USERWDP_JSON)) {
     return sendErr(res, 'Belum ada data. Upload user utama dulu.', 404);

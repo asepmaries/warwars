@@ -10,6 +10,7 @@ const USERWDP2_TXT = path.join(DATA_DIR, 'userwdp2.txt');
 const HASIL_TXT = path.join(DATA_DIR, 'hasil.txt');
 const LIMIT_TXT = path.join(DATA_DIR, 'userlimit.txt');
 const REGION_TXT = path.join(DATA_DIR, 'region.txt');
+const SALAH_TXT = path.join(DATA_DIR, 'userid_salah.txt');
 
 const SHEET_STORE = {
   main: {
@@ -359,6 +360,38 @@ function uploadRegion(content) {
   };
 }
 
+function uploadSalah(content) {
+  ensureDataDir();
+  const errors = [];
+  let incoming = 0;
+
+  parseLines(content).forEach((line, i) => {
+    if (/^user\|/i.test(line)) return;
+    const parts = line.split('|').map((p) => p.trim());
+    if (parts.length < 2) {
+      errors.push(`Baris ${i + 1}: format harus user|id`);
+      return;
+    }
+    incoming++;
+  });
+
+  if (!incoming && !errors.length) {
+    throw new Error('File kosong atau tidak ada baris valid.');
+  }
+
+  const existingSalah = fs.existsSync(SALAH_TXT) ? fs.readFileSync(SALAH_TXT, 'utf8') : '';
+  const merged = mergeLinesByUser(existingSalah, content, 2);
+  fs.writeFileSync(SALAH_TXT, merged);
+
+  return {
+    ok: true,
+    salah_count: incoming,
+    salah_total: parseLines(merged).length,
+    errors,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 function loadHasilMap() {
   if (!fs.existsSync(HASIL_TXT)) return {};
   const map = {};
@@ -395,12 +428,25 @@ function loadRegionMap() {
   return map;
 }
 
-function classifyRow(row, hasilMap, limitMap, regionMap) {
+function loadSalahMap() {
+  if (!fs.existsSync(SALAH_TXT)) return {};
+  const map = {};
+  parseLines(fs.readFileSync(SALAH_TXT, 'utf8')).forEach((line) => {
+    if (/^user\|/i.test(line)) return;
+    const parts = line.split('|').map((p) => p.trim());
+    const user = normalizeUserId(parts[0]);
+    if (user) map[user] = parts[1] || '';
+  });
+  return map;
+}
+
+function classifyRow(row, hasilMap, limitMap, regionMap, salahMap = {}) {
   const user = row.user;
   const gotInvoice = !!hasilMap[user] || String(row.link_invoice || '').trim() !== '';
   if (gotInvoice) return { status: 'sukses', sort: 0, hasil: '1' };
   if (limitMap[user]) return { status: 'limit', sort: 1, hasil: 'limit' };
   if (regionMap[user]) return { status: 'region_invalid', sort: 2, hasil: 'region_invalid' };
+  if (salahMap[user]) return { status: 'userid_salah', sort: 4, hasil: 'userid_salah' };
   return { status: 'zonk', sort: 3, hasil: '' };
 }
 
@@ -410,11 +456,12 @@ function buildSheetPayload(sheetKey = 'main') {
   const hasilMap = loadHasilMap();
   const limitMap = loadLimitMap();
   const regionMap = loadRegionMap();
+  const salahMap = loadSalahMap();
   const rows = data.rows || [];
 
   const enriched = rows.map((row, i) => ({
     ...row,
-    ...classifyRow(row, hasilMap, limitMap, regionMap),
+    ...classifyRow(row, hasilMap, limitMap, regionMap, salahMap),
     _order: i,
   }));
 
@@ -444,6 +491,7 @@ function buildSheetPayload(sheetKey = 'main') {
       sukses: finalRows.filter((r) => r.status === 'sukses').length,
       limit: finalRows.filter((r) => r.status === 'limit').length,
       region_invalid: finalRows.filter((r) => r.status === 'region_invalid').length,
+      userid_salah: finalRows.filter((r) => r.status === 'userid_salah').length,
       zonk: finalRows.filter((r) => r.status === 'zonk').length,
     },
     rows: finalRows,
@@ -456,7 +504,7 @@ function getSheetData(sheetKey = 'main') {
 
 function resetData() {
   ensureDataDir();
-  const targets = [USERWDP_JSON, USERWDP_TXT, USERWDP2_JSON, USERWDP2_TXT, HASIL_TXT, LIMIT_TXT, REGION_TXT];
+  const targets = [USERWDP_JSON, USERWDP_TXT, USERWDP2_JSON, USERWDP2_TXT, HASIL_TXT, LIMIT_TXT, REGION_TXT, SALAH_TXT];
   const deleted = [];
 
   targets.forEach((file) => {
@@ -468,7 +516,7 @@ function resetData() {
 
   return {
     ok: true,
-    message: 'Semua data user, hasil, limit, dan region dihapus',
+    message: 'Semua data user, hasil, limit, region, dan userid_salah dihapus',
     deleted,
     deleted_count: deleted.length,
   };
@@ -478,7 +526,7 @@ function getMeta() {
   ensureDataDir();
   const mainData = readJson(USERWDP_JSON);
   const sheet2Data = readJson(USERWDP2_JSON);
-  const emptyCounts = { sukses: 0, limit: 0, region_invalid: 0, zonk: 0 };
+  const emptyCounts = { sukses: 0, limit: 0, region_invalid: 0, userid_salah: 0, zonk: 0 };
   const sheetMain = fs.existsSync(USERWDP_JSON) ? buildSheetPayload('main') : { counts: emptyCounts, row_count: 0 };
   const sheet2 = fs.existsSync(USERWDP2_JSON) ? buildSheetPayload('sheet2') : { counts: emptyCounts, row_count: 0 };
 
@@ -506,6 +554,10 @@ function getMeta() {
       exists: fs.existsSync(REGION_TXT),
       line_count: fs.existsSync(REGION_TXT) ? parseLines(fs.readFileSync(REGION_TXT, 'utf8')).length : 0,
     },
+    salah: {
+      exists: fs.existsSync(SALAH_TXT),
+      line_count: fs.existsSync(SALAH_TXT) ? parseLines(fs.readFileSync(SALAH_TXT, 'utf8')).length : 0,
+    },
     sheet_counts: sheetMain.counts,
     sheet2_counts: sheet2.counts,
   };
@@ -516,6 +568,7 @@ module.exports = {
   uploadHasil,
   uploadLimit,
   uploadRegion,
+  uploadSalah,
   resetData,
   getSheetData,
   getMeta,
